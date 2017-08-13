@@ -1,0 +1,115 @@
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions
+from selenium.common.exceptions import TimeoutException
+import re
+import pandas as pd
+
+'''
+Set variable path_tochromedriver!!
+'''
+
+class google_trends(object):
+    def __init__(self, keyword, **kwargs):        
+        self.keyword = re.sub(' ', '%20', keyword)
+        
+        if 'geo' in kwargs:
+            if isinstance(kwargs['geo'], list) == 0:
+                self.geo = ('&geo=' +  kwargs['geo']).split()
+            else:
+                acc = []
+                for g in kwargs['geo']:
+                    acc.append('&geo=' + g)
+                self.geo  = acc
+        else:
+                self.geo = 'world'.split()
+
+        if 'period' in kwargs:
+            self.period = kwargs['period']
+        else:
+            self.period = None
+         
+    def get_url(self, geo):
+        if self.period:
+            period_dic = {'1h' : 'now%201-H',
+                          '4h' : 'now%204-H',
+                          '1d' : 'date=now%201-d',
+                          '7d' : 'now%207-d',
+                          '1m' : 'today%201-m',
+                          '3m' : 'today%203-m',
+                          '1y' : '',
+                          '5y' : 'date=today%205-y',
+                          'all' : 'date=all'}
+            url = 'https://trends.google.com/trends/explore?' + period_dic[self.period] + ''.join([geo]) + '&q=' + self.keyword
+        else:
+            url = 'https://trends.google.com/trends/explore?' +  ''.join([geo]) + '&q=' + self.keyword
+
+        return url
+        
+    @staticmethod
+    def chromedriver_up():
+        # Instantiate chromedriver
+        path_to_chromedriver = 'MY_PATH_TO_CHROMEDRIVER' # change path as needed
+        driver = webdriver.Chrome(executable_path = path_to_chromedriver)
+        return driver
+    
+    @staticmethod
+    def stop_chromedriver(driver):
+        driver.close()
+        driver.quit()
+        
+    def query(self):        
+        # Chromedriver instance
+        driver = self.chromedriver_up()
+
+        # Don't get in a hurry
+        wait = WebDriverWait(driver, 15)
+        
+        # Empty dataframe
+        g_trends =  pd.DataFrame()
+
+        # Loop over locations
+        for g in self.geo:
+            try:
+                # Get URL
+                driver.get(self.get_url(g))
+
+                # Create a columns for dates only once, i.e. when boolean == 0
+                boolean = 0
+                timestamp = []
+
+                # Run through webpage code
+                wait.until(
+                expected_conditions.presence_of_element_located((By.XPATH, '//*[@aria-label="A tabular representation of the data in the chart."]/table/tbody'))
+                )
+                table = driver.find_element_by_xpath('//*[@aria-label="A tabular representation of the data in the chart."]/table/tbody')
+
+
+                if boolean == 0:
+                    for i in table.find_elements_by_xpath('.//tr'):
+                        find_all= re.findall('\d{1,4}', i.get_attribute('innerHTML'))
+                        timestamp.append(find_all[0] + '/' + find_all[1] + '/' + find_all[2])
+
+                    g_trends['timestamp'] = timestamp
+                    boolean +=1
+
+                values = []
+                for i in table.find_elements_by_xpath('.//tr'):
+                    find_all= re.findall('\d{1,4}', i.get_attribute('innerHTML'))
+                    values.append(find_all[3])
+                    
+                if self.geo == '':
+                    g_trends['world'] = values
+                else: 
+                    g_trends[re.sub('&geo=', '', g)] = values
+            
+            # Continue on time exception
+            except TimeoutException:
+                print('{}: not found'.format(g))
+                continue
+                  
+        # Shut down the driver
+        self.stop_chromedriver(driver)
+        
+        return g_trends
