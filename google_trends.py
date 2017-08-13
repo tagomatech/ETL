@@ -85,7 +85,6 @@ class google_trends(object):
                 )
                 table = driver.find_element_by_xpath('//*[@aria-label="A tabular representation of the data in the chart."]/table/tbody')
 
-
                 if boolean == 0:
                     for i in table.find_elements_by_xpath('.//tr'):
                         find_all= re.findall('\d{1,4}', i.get_attribute('innerHTML'))
