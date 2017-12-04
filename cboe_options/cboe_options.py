@@ -1,5 +1,5 @@
 '''
-TODO: Code below not working any longer. Need to adapt it to slight changes in the CBOE website
+TODO: Code below isn't working any longer. Need to adapt it to slight changes in the CBOE website
 
 Copyright (C) 2015, Edouard 'tagoma' Tallent
 Class fetching options data from www.nasdaq.com 
