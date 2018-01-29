@@ -4,7 +4,11 @@ import json
 import pandas as pd
 
 class crop_prog(object):
-
+    '''
+	TODO:
+	Check whether additional features/filters are required depending on e.g. the
+	agricultural product selected
+	'''
     def __init__(self, crop, api=api, start=dt.datetime.now().year, end=dt.datetime.now().year, geo='US'):
         self.api = nass.NassApi(api)
         self.crop = crop
@@ -13,15 +17,10 @@ class crop_prog(object):
         self.geo = geo
     
     def get_data(self):
-    	'''
-	TODO:
-	Check whether additional features/filters are required depending on e.g. the
-	agricultural product selected
-    	'''
 
         # Establish connexion
         q = self.api.query()
-        
+
         # Data source
         q.filter('source_desc','SURVEY')
         
@@ -93,7 +92,7 @@ class crop_prog(object):
         # Execute query
         exec_query = q.execute()
 
-	# Re-arrange data into a dataframe        
+		# Re-arrange data into a dataframe        
         dumped = json.dumps(exec_query)
         df = pd.read_json(path_or_buf=dumped)
         df = df.set_index(['week_ending'])
