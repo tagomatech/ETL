@@ -14,9 +14,9 @@ class crop_prog(object):
     
     def get_data(self):
     	'''
-		TODO:
-		Check whether additional features/filters are required depending on e.g. the
-		agricultural product selected
+	TODO:
+	Check whether additional features/filters are required depending on e.g. the
+	agricultural product selected
     	'''
 
         # Establish connexion
@@ -93,7 +93,7 @@ class crop_prog(object):
         # Execute query
         exec_query = q.execute()
 
-		# Re-arrange data into a dataframe        
+	# Re-arrange data into a dataframe        
         dumped = json.dumps(exec_query)
         df = pd.read_json(path_or_buf=dumped)
         df = df.set_index(['week_ending'])
