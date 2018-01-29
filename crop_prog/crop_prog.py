@@ -5,10 +5,10 @@ import pandas as pd
 
 class crop_prog(object):
     '''
-	TODO:
-	Check whether additional features/filters are required depending on e.g. the
-	agricultural product selected
-	'''
+    TODO:
+    Check whether additional features/filters are required depending on e.g. the
+    agricultural product selected
+    '''
     def __init__(self, crop, api=api, start=dt.datetime.now().year, end=dt.datetime.now().year, geo='US'):
         self.api = nass.NassApi(api)
         self.crop = crop
