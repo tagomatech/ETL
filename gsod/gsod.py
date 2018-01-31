@@ -1,5 +1,6 @@
 import gzip
 import requests
+import io
 import re
 import numpy as np
 import pandas as pd
@@ -13,7 +14,7 @@ class GSOD(object):
     ----------
     
     station: str, weather station ID. A combination of USAF (6-digit) and
-    WBAN (5-digit) identification numbers separated by a dash sign
+    WBAN (5-digit) identification numbers separated by a dash sign
     
     start: int, default = current year.
     Year to download the data from
@@ -21,8 +22,11 @@ class GSOD(object):
     end: int, default = current year.
     Year to download the data up to
     
-    units: (additional parameter) : str of dic of str. Unit conversion destination,
-    e.g. ['celsius', 'km', 'kph', 'cm']   
+    units (additional parameter): str of dic of str. Unit conversion destination,
+    e.g. ['celsius', 'km', 'kph', 'cm']
+
+    station_search (additional parameter): select : dict, keys: 'ctry', 'station_name', 'state'
+    e.g. {'ctry': 'UK'}, {'state': 'IA'}, {'station_name': 'STANTON'}
     '''
     
     def __init__(self, station=None, start=dt.datetime.now().year, end=dt.datetime.now().year, **kwargs):
@@ -30,50 +34,58 @@ class GSOD(object):
         self.start = start
         self.end = end
         self.units = kwargs.get('units')
+        self.stn_search = kwargs.get('stn_search')
+        print(self.stn_search)
+        self.flag_search = 0
+
+    def _isd_hist(self):
         # Read weather list of available weather stations
         try:
             print('Wait! Downloading isd-history.csv file from NOAA servers...')
-            self.isd_hist = pd.read_csv('http://www1.ncdc.noaa.gov/pub/data/noaa/isd-history.csv', dtype=object)
-                                    
+            URL = 'http://www1.ncdc.noaa.gov/pub/data/noaa/isd-history.csv'
+            content = requests.get(URL).content
+            isd_hist = pd.read_csv(io.StringIO(content.decode('utf-8')))
+            print(isd_hist.head())                        
             print('OK!')
             # Rename 'STATION NAME' to 'STATION_NAME'
-            self.isd_hist = self.isd_hist.rename(index=str, columns={'STATION NAME' : 'STATION_NAME'})
+            isd_hist =  isd_hist.rename(index=str, columns={'STATION NAME' : 'STATION_NAME'})
             
-                        
             # To datetime objects
-            self.isd_hist.BEGIN = pd.to_datetime(self.isd_hist.BEGIN, format='%Y%m%d', infer_datetime_format=False)
-            self.isd_hist.END = pd.to_datetime(self.isd_hist.END, format='%Y%m%d', infer_datetime_format=False)
+            isd_hist.BEGIN = pd.to_datetime( isd_hist.BEGIN, format='%Y%m%d', infer_datetime_format=False)
+            isd_hist.END = pd.to_datetime(isd_hist.END, format='%Y%m%d', infer_datetime_format=False)
 
             # To numeric
-            self.isd_hist.LAT = pd.to_numeric(self.isd_hist.LAT)
-            self.isd_hist.LON = pd.to_numeric(self.isd_hist.LON)
+            isd_hist.LAT = pd.to_numeric( isd_hist.LAT)
+            isd_hist.LON = pd.to_numeric( isd_hist.LON)
 
             # Set index ID as table index
-            self.isd_hist['STATION_ID'] = self.isd_hist['USAF'].map(str) + '-' + self.isd_hist['WBAN'].map(str)
-            self.isd_hist = self.isd_hist.set_index(self.isd_hist['STATION_ID'])
+            isd_hist['STATION_ID'] =  isd_hist['USAF'].map(str) + '-' +  isd_hist['WBAN'].map(str)
+            isd_hist =  isd_hist.set_index( isd_hist['STATION_ID'])
 
             # Get rid of useless columns
-            self.isd_hist = self.isd_hist.drop(['USAF', 'WBAN', 'ICAO', 'ELEV(M)', 'STATION_ID'], axis=1)
+            isd_hist =  isd_hist.drop(['USAF', 'WBAN', 'ICAO', 'ELEV(M)', 'STATION_ID'], axis=1)
          
             # Headers to lower case
-            self.isd_hist.columns = self.isd_hist.columns.str.lower()
-          
+            isd_hist.columns =  isd_hist.columns.str.lower()
+
+            self.flag_search = 1
+
+            return isd_hist
+
         except Exception as e:
             print(e)
-            
-    def station_search(self, select):
-        '''
-        Parameters
-        ----------
-        
-        select : dict, keys: 'ctry', 'station_name', 'state'
-        e.g. {'ctry': 'UK'}, {'state': 'IA'}, {'station_name': 'STANTON'}
-        '''
-        key = ''.join([k for k in select.keys()])
-        val = ''.join([v for v in select.values()])
-        return self.isd_hist[self.isd_hist[key] == val]
+
+    def station_search(self):
+        if self.flag_search == 0 :
+            isd_hist = self._isd_hist()
+        print (isd_hist.head())
+        key = ''.join([k for k in self.stn_search.keys()])
+        print(key)
+        val = ''.join([v for v in self.stn_search.values()])
+        print(val)
+        return isd_hist[isd_hist[key] == val]
    
-    def getData(self):
+    def get_data(self):
         '''
         Get weather data from the internet as memory stream
         '''
@@ -142,7 +154,6 @@ class GSOD(object):
 
                 '''
                 Replacements
-
                 min_f & max_f
                 blank   : explicit => e
                 *       : derived => d
