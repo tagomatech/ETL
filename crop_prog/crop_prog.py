@@ -9,7 +9,7 @@ class crop_prog(object):
     Check whether additional features/filters are required depending on e.g. the
     agricultural product selected
     '''
-    def __init__(self, crop, api=api, start=dt.datetime.now().year, end=dt.datetime.now().year, geo='US'):
+    def __init__(self, crop, api, start=dt.datetime.now().year, end=dt.datetime.now().year, geo='US'):
         self.api = nass.NassApi(api)
         self.crop = crop
         self.start = start
