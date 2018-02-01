@@ -79,8 +79,11 @@ class GSOD(object):
             isd_hist = self._isd_hist()
         key = ''.join([k for k in self.stn_search.keys()])
         val = ''.join([v for v in self.stn_search.values()])
+        isd_hist = isd_hist[isd_hist[key] == val]
+
         # Change index
         isd_hist.index = list(range(isd_hist.shape[0]))
+        
         return isd_hist
    
     def get_data(self):
