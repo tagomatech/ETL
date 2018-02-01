@@ -35,36 +35,35 @@ class GSOD(object):
         self.end = end
         self.units = kwargs.get('units')
         self.stn_search = kwargs.get('stn_search')
-        print(self.stn_search)
         self.flag_search = 0
 
     def _isd_hist(self):
-        # Read weather list of available weather stations
         try:
+            # Read weather list of available weather stations
             print('Wait! Downloading isd-history.csv file from NOAA servers...')
             URL = 'http://www1.ncdc.noaa.gov/pub/data/noaa/isd-history.csv'
             content = requests.get(URL).content
-            isd_hist = pd.read_csv(io.StringIO(content.decode('utf-8')))
-            print(isd_hist.head())                        
+            isd_hist = pd.read_csv(io.StringIO(content.decode('utf-8')),
+                                   converters={'STATION NAME': lambda x: str(x), 'WBAN' : lambda x: str(x)})
             print('OK!')
+
             # Rename 'STATION NAME' to 'STATION_NAME'
             isd_hist =  isd_hist.rename(index=str, columns={'STATION NAME' : 'STATION_NAME'})
             
             # To datetime objects
-            isd_hist.BEGIN = pd.to_datetime( isd_hist.BEGIN, format='%Y%m%d', infer_datetime_format=False)
+            isd_hist.BEGIN = pd.to_datetime(isd_hist.BEGIN, format='%Y%m%d', infer_datetime_format=False)
             isd_hist.END = pd.to_datetime(isd_hist.END, format='%Y%m%d', infer_datetime_format=False)
 
             # To numeric
-            isd_hist.LAT = pd.to_numeric( isd_hist.LAT)
-            isd_hist.LON = pd.to_numeric( isd_hist.LON)
+            isd_hist.LAT = pd.to_numeric(isd_hist.LAT)
+            isd_hist.LON = pd.to_numeric(isd_hist.LON)
 
-            # Set index ID as table index
+            # Create station ID
             isd_hist['STATION_ID'] =  isd_hist['USAF'].map(str) + '-' +  isd_hist['WBAN'].map(str)
-            isd_hist =  isd_hist.set_index( isd_hist['STATION_ID'])
 
             # Get rid of useless columns
-            isd_hist =  isd_hist.drop(['USAF', 'WBAN', 'ICAO', 'ELEV(M)', 'STATION_ID'], axis=1)
-         
+            isd_hist =  isd_hist.drop(['USAF', 'WBAN', 'ICAO', 'ELEV(M)'], axis=1)
+        
             # Headers to lower case
             isd_hist.columns =  isd_hist.columns.str.lower()
 
@@ -78,12 +77,11 @@ class GSOD(object):
     def station_search(self):
         if self.flag_search == 0 :
             isd_hist = self._isd_hist()
-        print (isd_hist.head())
         key = ''.join([k for k in self.stn_search.keys()])
-        print(key)
         val = ''.join([v for v in self.stn_search.values()])
-        print(val)
-        return isd_hist[isd_hist[key] == val]
+        # Change index
+        isd_hist.index = list(range(isd_hist.shape[0]))
+        return isd_hist
    
     def get_data(self):
         '''
