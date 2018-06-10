@@ -90,10 +90,8 @@ class GSOD(object):
             if isinstance(v, list):
                 acc.append('{} '.format(k) + sign + '= {} & '.format(v))
             else:
-                print('{} '.format(k) + sign + '= {} & '.format(''.join(v)))
                 acc.append('{} '.format(k) + sign + '= {} & '.format(''.join(v)))
-        print(acc)
-        print(''.join(acc))
+
         return isd_hist.query(re.sub('(?=.*)&.$','' ,''.join(acc)))
    
 
