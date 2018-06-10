@@ -43,39 +43,34 @@ class GSOD(object):
         # Read weather list of available weather stations on NOAA servers
         try:
             print('Wait! Downloading isd-history.csv file from NOAA servers...')
-            isd_hist = pd.read_csv('http://www1.ncdc.noaa.gov/pub/data/noaa/isd-history.csv', dtype=object)
+            url =  'http://www1.ncdc.noaa.gov/pub/data/noaa/isd-history.csv'
+            df_mapping = {'USAF' : str,
+              'WBAN' : str,
+              'STATION NAME' : str,
+              'CTRY' : str,
+              'STATE' : str,
+              'ICAO' : str,
+              'LAT' : float,
+              'LON' : float,
+              'ELEV' : float,
+              'BEGIN' : str,
+              'END' : str}
+            date_parser = ['BEGIN', 'END']
+            isd_hist = pd.read_csv(url,
+                                    dtype=df_mapping,
+                                    parse_dates=date_parser)
             print('Download complete!')
             # Rename 'STATION NAME' to 'STATION_NAME'
             isd_hist = isd_hist.rename(index=str, columns={'STATION NAME' : 'STATION_NAME'})
             
-                        
-            # To datetime objects
-            isd_hist.BEGIN = pd.to_datetime(isd_hist.BEGIN, format='%Y%m%d', infer_datetime_format=False)
-            isd_hist.END = pd.to_datetime(isd_hist.END, format='%Y%m%d', infer_datetime_format=False)
-
-            # To numeric
-            isd_hist.LAT = pd.to_numeric(isd_hist.LAT)
-            isd_hist.LON = pd.to_numeric(isd_hist.LON)
-
-            # Set index ID as table index
-            isd_hist['STATION_ID'] = isd_hist['USAF'].map(str) + '-' + isd_hist['WBAN'].map(str)
-            isd_hist = isd_hist.set_index(isd_hist['STATION_ID'])
-
             # Get rid of useless columns
-            isd_hist = isd_hist.drop(['USAF', 'WBAN', 'ICAO', 'ELEV(M)', 'STATION_ID'], axis=1)
+            isd_hist = isd_hist.drop(['USAF', 'WBAN', 'ICAO', 'ELEV(M)'], axis=1)
          
             # Headers to lower case
             isd_hist.columns = isd_hist.columns.str.lower()
           
         except Exception as e:
             print(e)
-
-        '''
-        key = ''.join([k for k in select.keys()])
-        val = ''.join([v for v in select.values()])
-
-        return isd_hist[isd_hist[key] == val]
-        '''
     
         acc = []
         for k, v in select.items():
@@ -218,9 +213,6 @@ class GSOD(object):
                 
                 # Convert to date format
                 df['date'] = pd.to_datetime(df['date'], format='%Y%m%d')
-
-                # Set station_id as dataframe index
-                df = df.set_index(keys='station_id')
 
                 if self.units:
                     for conv in self.units:
