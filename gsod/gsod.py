@@ -30,38 +30,9 @@ class GSOD(object):
         self.start = start
         self.end = end
         self.units = kwargs.get('units')
-        # Read weather list of available weather stations
-        try:
-            print('Wait! Downloading isd-history.csv file from NOAA servers...')
-            self.isd_hist = pd.read_csv('http://www1.ncdc.noaa.gov/pub/data/noaa/isd-history.csv', dtype=object)
-                                    
-            print('OK!')
-            # Rename 'STATION NAME' to 'STATION_NAME'
-            self.isd_hist = self.isd_hist.rename(index=str, columns={'STATION NAME' : 'STATION_NAME'})
-            
-                        
-            # To datetime objects
-            self.isd_hist.BEGIN = pd.to_datetime(self.isd_hist.BEGIN, format='%Y%m%d', infer_datetime_format=False)
-            self.isd_hist.END = pd.to_datetime(self.isd_hist.END, format='%Y%m%d', infer_datetime_format=False)
 
-            # To numeric
-            self.isd_hist.LAT = pd.to_numeric(self.isd_hist.LAT)
-            self.isd_hist.LON = pd.to_numeric(self.isd_hist.LON)
-
-            # Set index ID as table index
-            self.isd_hist['STATION_ID'] = self.isd_hist['USAF'].map(str) + '-' + self.isd_hist['WBAN'].map(str)
-            self.isd_hist = self.isd_hist.set_index(self.isd_hist['STATION_ID'])
-
-            # Get rid of useless columns
-            self.isd_hist = self.isd_hist.drop(['USAF', 'WBAN', 'ICAO', 'ELEV(M)', 'STATION_ID'], axis=1)
-         
-            # Headers to lower case
-            self.isd_hist.columns = self.isd_hist.columns.str.lower()
-          
-        except Exception as e:
-            print(e)
-            
-    def stationSearch(self, select):
+    @staticmethod
+    def stationSearch(select):
         '''
         Parameters
         ----------
@@ -69,10 +40,63 @@ class GSOD(object):
         select : dict, keys: 'ctry', 'station_name', 'state'
         e.g. {'ctry': 'UK'}, {'state': 'IA'}, {'station_name': 'STANTON'}
         '''
+        # Read weather list of available weather stations on NOAA servers
+        try:
+            print('Wait! Downloading isd-history.csv file from NOAA servers...')
+            isd_hist = pd.read_csv('http://www1.ncdc.noaa.gov/pub/data/noaa/isd-history.csv', dtype=object)
+            print('Download complete!')
+            # Rename 'STATION NAME' to 'STATION_NAME'
+            isd_hist = isd_hist.rename(index=str, columns={'STATION NAME' : 'STATION_NAME'})
+            
+                        
+            # To datetime objects
+            isd_hist.BEGIN = pd.to_datetime(isd_hist.BEGIN, format='%Y%m%d', infer_datetime_format=False)
+            isd_hist.END = pd.to_datetime(isd_hist.END, format='%Y%m%d', infer_datetime_format=False)
+
+            # To numeric
+            isd_hist.LAT = pd.to_numeric(isd_hist.LAT)
+            isd_hist.LON = pd.to_numeric(isd_hist.LON)
+
+            # Set index ID as table index
+            isd_hist['STATION_ID'] = isd_hist['USAF'].map(str) + '-' + isd_hist['WBAN'].map(str)
+            isd_hist = isd_hist.set_index(isd_hist['STATION_ID'])
+
+            # Get rid of useless columns
+            isd_hist = isd_hist.drop(['USAF', 'WBAN', 'ICAO', 'ELEV(M)', 'STATION_ID'], axis=1)
+         
+            # Headers to lower case
+            isd_hist.columns = isd_hist.columns.str.lower()
+          
+        except Exception as e:
+            print(e)
+
+        '''
         key = ''.join([k for k in select.keys()])
         val = ''.join([v for v in select.values()])
-        return self.isd_hist[self.isd_hist[key] == val]
+
+        return isd_hist[isd_hist[key] == val]
+        '''
+    
+        acc = []
+        for k, v in select.items():
+
+            if k == 'begin':
+                sign = '<'
+            elif k == 'end':
+                sign = '>'
+            else:
+                sign = '='
+
+            if isinstance(v, list):
+                acc.append('{} '.format(k) + sign + '= {} & '.format(v))
+            else:
+                print('{} '.format(k) + sign + '= {} & '.format(''.join(v)))
+                acc.append('{} '.format(k) + sign + '= {} & '.format(''.join(v)))
+        print(acc)
+        print(''.join(acc))
+        return isd_hist.query(re.sub('(?=.*)&.$','' ,''.join(acc)))
    
+
     def getData(self):
         '''
         Get weather data from the internet as memory stream
