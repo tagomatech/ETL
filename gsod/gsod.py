@@ -61,7 +61,7 @@ class GSOD(object):
         except Exception as e:
             print(e)
             
-    def station_search(self, select):
+    def stationSearch(self, select):
         '''
         Parameters
         ----------
@@ -227,4 +227,4 @@ class GSOD(object):
             return big_df
         
         else:
-            print('Require weather station argument!')  
+            print('Require weather station argument!')
