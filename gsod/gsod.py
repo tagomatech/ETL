@@ -13,7 +13,7 @@ class GSOD(object):
     ----------
     
     station: str, weather station ID. A combination of USAF (6-digit) and
-    WBAN (5-digit) identification numbers separated by a dash sign
+    WBAN (5-digit) identification numbers separated by a dash sign
     
     start: int, default = current year.
     Year to download the data from
@@ -43,52 +43,63 @@ class GSOD(object):
         # Read weather list of available weather stations on NOAA servers
         try:
             print('Wait! Downloading isd-history.csv file from NOAA servers...')
-            url =  'http://www1.ncdc.noaa.gov/pub/data/noaa/isd-history.csv'
+            #url =  'http://www1.ncdc.noaa.gov/pub/data/noaa/isd-history.csv'
+            url = 'ftp://ftp.ncdc.noaa.gov/pub/data/noaa/isd-history.csv'
+            ''' HTTP Error 503: Service Unavailable
+            # error message at work despite service
+            # working properly
+            '''
+            #url = 'https://s3.amazonaws.com/aws-gsod/isd-history.csv'
             df_mapping = {'USAF' : str,
-              'WBAN' : str,
-              'STATION NAME' : str,
-              'CTRY' : str,
-              'STATE' : str,
-              'ICAO' : str,
-              'LAT' : float,
-              'LON' : float,
-              'ELEV' : float,
-              'BEGIN' : str,
-              'END' : str}
+                            'WBAN' : str,
+                            'STATION NAME' : str,
+                            'CTRY' : str,
+                            'STATE' : str,
+                            'ICAO' : str,
+                            'LAT' : float,
+                            'LON' : float,
+                            'ELEV' : float,
+                            'BEGIN' : str,
+                          'END' : str}
             date_parser = ['BEGIN', 'END']
             isd_hist = pd.read_csv(url,
                                     dtype=df_mapping,
                                     parse_dates=date_parser)
             print('Download complete!')
+            
             # Rename 'STATION NAME' to 'STATION_NAME'
             isd_hist = isd_hist.rename(index=str, columns={'STATION NAME' : 'STATION_NAME'})
+
+            # Merge 'USAF' and 'WBAN'
+            isd_hist['station_id'] = isd_hist.USAF + '-' + isd_hist.WBAN
             
             # Get rid of useless columns
             isd_hist = isd_hist.drop(['USAF', 'WBAN', 'ICAO', 'ELEV(M)'], axis=1)
          
             # Headers to lower case
             isd_hist.columns = isd_hist.columns.str.lower()
-          
+            
+                        
+            acc = []
+            for k, v in select.items():
+                if k == 'begin':
+                    sign = '<'
+                elif k == 'end':
+                    sign = '>'
+                else:
+                    sign = '='
+
+                if isinstance(v, list):
+                    acc.append('{} '.format(k) + sign + '= {} & '.format(v))
+                else:
+                    acc.append('{} '.format(k) + sign + '= {} & '.format(''.join(v)))
+
+            return isd_hist.query(re.sub('(?=.*)&.$','' ,''.join(acc)))
+            
         except Exception as e:
             print(e)
-    
-        acc = []
-        for k, v in select.items():
 
-            if k == 'begin':
-                sign = '<'
-            elif k == 'end':
-                sign = '>'
-            else:
-                sign = '='
 
-            if isinstance(v, list):
-                acc.append('{} '.format(k) + sign + '= {} & '.format(v))
-            else:
-                acc.append('{} '.format(k) + sign + '= {} & '.format(''.join(v)))
-
-        return isd_hist.query(re.sub('(?=.*)&.$','' ,''.join(acc)))
-   
 
     def getData(self):
         '''
@@ -159,7 +170,6 @@ class GSOD(object):
 
                 '''
                 Replacements
-
                 min_f & max_f
                 blank   : explicit => e
                 *       : derived => d
