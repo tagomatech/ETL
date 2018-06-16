@@ -42,7 +42,6 @@ def _unique(session, cls, hashfunc, queryfunc, constructor, arg, kw):
         cache[key] = obj
         return obj
     
-    
 class PSD(object):
    
     @declared_attr
