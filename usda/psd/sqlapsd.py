@@ -75,15 +75,16 @@ class PSD(object):
                                  PSD.val == val))
         
            
-class psdODS(PSD, Base, UniqueMixin):
+class PSD_ODS(PSD, Base, UniqueMixin):
 
     def __repr__(self):
         return '<psdODS(cmdy_code={}, ctry_code={}>'.format(PSD.cmdy_code,
-                                                                PSD.mkg_yr,
-                                                                PSD.cal_yr,
-                                                                PSD.mth,
-                                                                PSD.attr_id,
-                                                                PSD.unit_id,
-                                                                PSD.val)
+                                                            PSD.ctry_code,
+                                                            PSD.mkg_yr,
+                                                            PSD.cal_yr,
+                                                            PSD.mth,
+                                                            PSD.attr_id,
+                                                            PSD.unit_id,
+                                                            PSD.val)
 
 Base.prepare(engine)
