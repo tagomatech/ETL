@@ -1,13 +1,3 @@
-'''
-The following class allows to:
-
-- Download crop progress and condition from the USDA website
-
-- Create new MySQL tables containing crops data, and update these tables
-
-- Query the MySQL database to retrieve crops data
-
-'''
 import nass, json
 import pandas as pd
 
