@@ -146,35 +146,41 @@ class Wasde(object):
                    .cell['cell_value6']
 
     @staticmethod
-    def _dfFactory(mkg_yrs, pr_mths, item_nb, items, act_vals, est_vals, pm_proj_vals, cm_proj_vals):
- 
-        df_act_vals = pd.DataFrame({'mkg_yr' : np.repeat(mkg_yrs[0], item_nb),
-                            'proj_mth' : np.repeat(pr_mths[0], item_nb),
-                            'item' : items,
-                            'est_type' : 'act_vals',
-                            'val' : act_vals})
+    def _getMonthReport(soup):
+        return soup.sr08.report['report_month']
 
-        df_est_vals = pd.DataFrame({'mkg_yr' : np.repeat(mkg_yrs[1], item_nb),
-                            'proj_mth' : np.repeat(pr_mths[1], item_nb),
-                            'item' : items,
-                            'est_type' : 'est_vals',
-                            'val' : est_vals})
+    @staticmethod
+    def _dfFactory(mkg_yrs, pr_mths, item_nb, items, act_vals, est_vals, pm_proj_vals, cm_proj_vals, report_date):
+ 
+        df_act_vals = pd.DataFrame({'marketing_year' : np.repeat(mkg_yrs[0], item_nb),
+                                    'statistics_month' : np.repeat(pr_mths[0], item_nb),
+                                    'flow' : items,
+                                    'estimate_type' : 'actual',
+                                    'value' : act_vals})
+
+        df_est_vals = pd.DataFrame({'marketing_year' : np.repeat(mkg_yrs[1], item_nb),
+                                    'statistics_month' : np.repeat(pr_mths[1], item_nb),
+                                    'flow' : items,
+                                    'estimate_type' : 'estimate',
+                                    'value' : est_vals})
         
        
-        df_pm_proj_vals = pd.DataFrame({'mkg_yr' : np.repeat(mkg_yrs[2], item_nb),
-                            'proj_mth' : np.repeat(pr_mths[2], item_nb),
-                            'item' : items,
-                            'est_type' : 'pm_proj_vals',        
-                            'val' : pm_proj_vals})
+        df_pm_proj_vals = pd.DataFrame({'marketing_year' : np.repeat(mkg_yrs[2], item_nb),
+                                        'statistics_month' : np.repeat(pr_mths[2], item_nb),
+                                        'flow' : items,
+                                        'estimate_type' : 'prev. proj.',        
+                                        'value' : pm_proj_vals})
         
-        df_cm_proj_vals = pd.DataFrame({'mkg_yr' : np.repeat(mkg_yrs[3], item_nb),
-                            'proj_mth' : np.repeat(pr_mths[3], item_nb),
-                            'item' : items,
-                            'est_type' : 'cm_proj_vals',
-                            'val' : cm_proj_vals})
+        df_cm_proj_vals = pd.DataFrame({'marketing_year' : np.repeat(mkg_yrs[3], item_nb),
+                                        'statistics_month' : np.repeat(pr_mths[3], item_nb),
+                                        'flow' : items,
+                                        'estimate_type' : 'new proj.',
+                                        'value' : cm_proj_vals})
                            
         df = pd.concat([df_act_vals, df_est_vals, df_pm_proj_vals, df_cm_proj_vals])
-        
+
+        df['update'] = report_date
+       
         return df
     
   
@@ -212,22 +218,16 @@ class Wasde(object):
                 else:
                     cm_pr_acc.append(self._getVals15_1(soup, 15, 1, item, mkg_yr))
 
-        return self._dfFactory(mkg_yrs, pr_mths, item_nb, items, act_vals_acc, est_vals_acc, pm_pr_acc, cm_pr_acc)
+        report_date = self._getMonthReport(soup)
+
+        return self._dfFactory(mkg_yrs, pr_mths, item_nb, items, act_vals_acc, est_vals_acc, pm_pr_acc, cm_pr_acc, report_date)
     
     
     def USSoymeal(self):
         soup = self._getSoup()
-        
-        # Marketing years - ['2016/17', '2017/18 Est.', '2018/19 Proj.', '2018/19 Proj.']
         mkg_yrs = self._getMaketingYears15_1(soup, 15, 1)
-
-        # Projected mths - ['', '', 'Apr', 'May']             
         pr_mths = self._getProjMths15_1(soup, 15, 1)
-
-        # Number of items in the table - 15
         item_nb = self._getItNb15_3(soup, 15, 3)
-
-        # Items - ['Area Planted', 'Area Harvested', 'Yield per Harvested Acre', ... 'Avg. Farm Price ($/bu)  4/']
         items = [self._getIts15_3(soup, 15, 3, item) for item in range(item_nb)]
 
         act_vals_acc = []
@@ -246,22 +246,16 @@ class Wasde(object):
                 else:
                     cm_pr_acc.append(self._getVals15_3(soup, 15, 3, item, mkg_yr))
 
-        return self._dfFactory(mkg_yrs, pr_mths, item_nb, items, act_vals_acc, est_vals_acc, pm_pr_acc, cm_pr_acc)
+        report_date = self._getMonthReport(soup)
+
+        return self._dfFactory(mkg_yrs, pr_mths, item_nb, items, act_vals_acc, est_vals_acc, pm_pr_acc, cm_pr_acc, report_date)
  
 
     def USSoyoil(self):
         soup = self._getSoup()
-        
-        # Marketing years - ['2016/17', '2017/18 Est.', '2018/19 Proj.', '2018/19 Proj.']
         mkg_yrs = self._getMaketingYears15_1(soup, 15, 1)
-
-        # Projected mths - ['', '', 'Apr', 'May']             
         pr_mths = self._getProjMths15_1(soup, 15, 1)
-
-        # Number of items in the table - 15
         item_nb = self._getItNb15_2(soup, 15, 2)
-
-        # Items - ['Area Planted', 'Area Harvested', 'Yield per Harvested Acre', ... 'Avg. Farm Price ($/bu)  4/']
         items = [self._getIts15_2(soup, 15, 2, item) for item in range(item_nb)]
 
         act_vals_acc = []
@@ -280,22 +274,16 @@ class Wasde(object):
                 else:
                     cm_pr_acc.append(self._getVals15_2(soup, 15, 2, item, mkg_yr))
 
-        return self._dfFactory(mkg_yrs, pr_mths, item_nb, items, act_vals_acc, est_vals_acc, pm_pr_acc, cm_pr_acc)
+        report_date = self._getMonthReport(soup)
+
+        return self._dfFactory(mkg_yrs, pr_mths, item_nb, items, act_vals_acc, est_vals_acc, pm_pr_acc, cm_pr_acc, report_date)
 
 
     def USCorn(self):
         soup = self._getSoup()
-    
-        # Marketing years - ['2016/17', '2017/18 Est.', '2018/19 Proj.', '2018/19 Proj.']
         mkg_yrs = self._getMaketingYears12_1(soup, 12, 1)
-
-        # Projected mths - ['', '', 'Apr', 'May']             
         pr_mths = self._getProjMths12_1(soup, 12, 1)
-        
-        # Number of items in the table - 15
         item_nb = self._getItNb(soup, 12, 2)
-        
-        # Items - ['Area Planted', 'Area Harvested', 'Yield per Harvested Acre', ... 'Avg. Farm Price ($/bu)  4/']
         items = [self._getIts12_2(soup, 12, 2, item) for item in range(item_nb)]
 
         act_vals_acc = []
@@ -314,4 +302,7 @@ class Wasde(object):
                 else:
                     cm_pr_acc.append(self._getVals12_2(soup, 12, 2, item, mkg_yr))
 
-        return self._dfFactory(mkg_yrs, pr_mths, item_nb, items, act_vals_acc, est_vals_acc, pm_pr_acc, cm_pr_acc)
+
+        report_date = self._getMonthReport(soup)
+
+        return self._dfFactory(mkg_yrs, pr_mths, item_nb, items, act_vals_acc, est_vals_acc, pm_pr_acc, cm_pr_acc, report_date)
