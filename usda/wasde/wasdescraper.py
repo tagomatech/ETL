@@ -2,6 +2,7 @@ import requests
 from bs4 import BeautifulSoup
 import numpy as np
 import pandas as pd
+import datetime as dt
 
 class Wasde(object):
     
@@ -37,8 +38,6 @@ class Wasde(object):
         
     @staticmethod
     def _getProjMths12_1(soup, page, table):
-        # Return 3-letter mth proj. prev. mth [2] and proj. curr. mth [3];
-        # Index [0] and [1] must be None
         acc = []
         for mkg_yr in range(4):
             acc.append(soup.find('sr' + str(page))\
@@ -51,8 +50,6 @@ class Wasde(object):
     
     @staticmethod
     def _getProjMths15_1(soup, page, table):
-        # Return 3-letter month proj. prev. month [2] and proj. curr. month [3];
-        # Index [0] and [1] must be None
         acc = []
         for mkg_yr in range(4):
             acc.append(soup.find('sr' + str(page))\
@@ -65,7 +62,6 @@ class Wasde(object):
     
     @staticmethod
     def _getItNb(soup, page, table):
-    # Get the number of items (rows) in the pagele
         return len(soup.find('sr' + str(page))\
                    .report.find('matrix' + str(table))\
                    .find_all('m' + str(table) + '_attribute_group'))
@@ -84,7 +80,6 @@ class Wasde(object):
 
     @staticmethod
     def _getIts12_2(soup, page, table, item):
-    # Return flow name
         return soup.find('sr' + str(page))\
                     .report\
                     .find('matrix' + str(table))\
@@ -93,7 +88,6 @@ class Wasde(object):
     
     @staticmethod
     def _getIts15_1(soup, page, table, item):
-        # Return flow name
         return soup.find('sr' + str(page))\
                     .report\
                     .find('matrix' + str(table))\
@@ -179,7 +173,15 @@ class Wasde(object):
                            
         df = pd.concat([df_act_vals, df_est_vals, df_pm_proj_vals, df_cm_proj_vals])
 
+        df.marketing_year = df.marketing_year.replace(to_replace='\D+$', value='', inplace=False, limit=None, regex=True, method='pad')
+
+        df.flow = df.flow.replace(to_replace='^\s+', value='', inplace=False, limit=None, regex=True, method='pad')
+        df.flow = df.flow.replace(to_replace='\s+\d/$', value='', inplace=False, limit=None, regex=True, method='pad')
+
+        df.value = df.value.replace(to_replace=',', value='', inplace=False, limit=None, regex=True, method='pad')
+
         df['update'] = report_date
+        df['update'] = df['update'].apply(lambda x: dt.datetime.strptime(x, '%B %Y'))
        
         return df
     
@@ -225,9 +227,17 @@ class Wasde(object):
     
     def USSoymeal(self):
         soup = self._getSoup()
+        
+        # Marketing years - ['2016/17', '2017/18 Est.', '2018/19 Proj.', '2018/19 Proj.']
         mkg_yrs = self._getMaketingYears15_1(soup, 15, 1)
+
+        # Projected mths - ['', '', 'Apr', 'May']             
         pr_mths = self._getProjMths15_1(soup, 15, 1)
+
+        # Number of items in the table - 15
         item_nb = self._getItNb15_3(soup, 15, 3)
+
+        # Items - ['Area Planted', 'Area Harvested', 'Yield per Harvested Acre', ... 'Avg. Farm Price ($/bu)  4/']
         items = [self._getIts15_3(soup, 15, 3, item) for item in range(item_nb)]
 
         act_vals_acc = []
@@ -253,9 +263,17 @@ class Wasde(object):
 
     def USSoyoil(self):
         soup = self._getSoup()
+        
+        # Marketing years - ['2016/17', '2017/18 Est.', '2018/19 Proj.', '2018/19 Proj.']
         mkg_yrs = self._getMaketingYears15_1(soup, 15, 1)
+
+        # Projected mths - ['', '', 'Apr', 'May']             
         pr_mths = self._getProjMths15_1(soup, 15, 1)
+
+        # Number of items in the table - 15
         item_nb = self._getItNb15_2(soup, 15, 2)
+
+        # Items - ['Area Planted', 'Area Harvested', 'Yield per Harvested Acre', ... 'Avg. Farm Price ($/bu)  4/']
         items = [self._getIts15_2(soup, 15, 2, item) for item in range(item_nb)]
 
         act_vals_acc = []
@@ -281,9 +299,17 @@ class Wasde(object):
 
     def USCorn(self):
         soup = self._getSoup()
+    
+        # Marketing years - ['2016/17', '2017/18 Est.', '2018/19 Proj.', '2018/19 Proj.']
         mkg_yrs = self._getMaketingYears12_1(soup, 12, 1)
+
+        # Projected mths - ['', '', 'Apr', 'May']             
         pr_mths = self._getProjMths12_1(soup, 12, 1)
+        
+        # Number of items in the table - 15
         item_nb = self._getItNb(soup, 12, 2)
+        
+        # Items - ['Area Planted', 'Area Harvested', 'Yield per Harvested Acre', ... 'Avg. Farm Price ($/bu)  4/']
         items = [self._getIts12_2(soup, 12, 2, item) for item in range(item_nb)]
 
         act_vals_acc = []
