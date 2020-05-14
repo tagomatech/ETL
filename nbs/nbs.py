@@ -106,10 +106,13 @@ class NBS_Fetcher(object):
             TODO: Review the part of the code that creates the np.Series() object as
             it is likely to break when only 1 data point is returned
             
+            
         Returns
         -------
         series
             The time series containing the required data
+            
+            
         Examples
         --------
         # Example 1 : China gasoline production, monthly volumes (10000 tons) by month from Jun-18 to May-19
@@ -118,6 +121,7 @@ class NBS_Fetcher(object):
                             measure='01',
                             period='201806-201905')
         data = nbs.get_data()
+        
         # Example 2 : Shandong crude oil processing, monthly growth rate for the past 13 months
         nbs = NBS_Fetcher('hgyd',
                             'A030106',
