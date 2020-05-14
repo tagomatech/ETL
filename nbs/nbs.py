@@ -26,6 +26,7 @@ class NBS_Fetcher(object):
             international data, yearly      :   'gjnd'
             international data, monthly     :   'gjyd'
             3 main countries data, monthly  :   'gjydsdj'
+            
             TODO: Only monthly data at national and province level where dealt with.
             Extend code to other geographical and time granularities
             
@@ -53,6 +54,7 @@ class NBS_Fetcher(object):
             wind power              :   "A03010K"
             solar power             :   "A03010L"
             gas                     : "A03010M"
+            
         geo : str, optional
             NBS geographical zone to fetch data for. Possible values:
             
@@ -90,8 +92,10 @@ class NBS_Fetcher(object):
                 Xinjiang        :   "650000"
                 
             TODO: complete the list above for other geographical levels
+            
         measure : str
             Data type required. Possible values:
+            
             Current Period                              :   "01"
             Accumulated                                 :   "02"
             Growth Rate (The same period last year=100) :   "03"
@@ -101,6 +105,7 @@ class NBS_Fetcher(object):
             
         period : str
             Timestamp or time range. Includes possible values below:
+            
             13 most recent months   : "LAST13"
             24 most recent months   : "LAST24"
             36 most recent months   : "LAST36"
