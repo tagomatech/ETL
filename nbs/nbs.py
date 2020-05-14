@@ -53,6 +53,7 @@ class NBS_Fetcher(object):
             wind power              :   "A03010K"
             solar power             :   "A03010L"
             gas                     : "A03010M"
+
         geo : str, optional
             NBS geographical zone to fetch data for. Possible values:
             Provinces:
@@ -88,6 +89,7 @@ class NBS_Fetcher(object):
                 Ningxia         :   "640000"
                 Xinjiang        :   "650000"
             TODO: complete the list above for other geographical levels
+
         measure : str
             Data type required. Possible values:
             Current Period                              :   "01"
@@ -95,6 +97,7 @@ class NBS_Fetcher(object):
             Growth Rate (The same period last year=100) :   "03"
             Accumulated Growth Rate(%)                  :   "04"
             TODO: check data type are always those in the list above across products
+            
         period : str
             Timestamp or time range. Includes possible values below:
             13 most recent months   : "LAST13"
