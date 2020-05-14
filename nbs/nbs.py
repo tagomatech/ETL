@@ -53,7 +53,6 @@ class NBS_Fetcher(object):
             wind power              :   "A03010K"
             solar power             :   "A03010L"
             gas                     : "A03010M"
-
         geo : str, optional
             NBS geographical zone to fetch data for. Possible values:
             
@@ -91,7 +90,6 @@ class NBS_Fetcher(object):
                 Xinjiang        :   "650000"
                 
             TODO: complete the list above for other geographical levels
-
         measure : str
             Data type required. Possible values:
             Current Period                              :   "01"
@@ -160,6 +158,8 @@ class NBS_Fetcher(object):
         self.url_QueryData = '{}?m=QueryData&dbcode={}&rowcode=zb&colcode=sj&wds=[{{"wdcode":"reg","valuecode":"{}"}}]&dfwds=[{{"wdcode":"sj","valuecode":"{}"}}]'.format(url_root,
                                                                                                                                                                         self.database,
                                                                                                                                                                         self.geo,
+                                                                                                                                                                        self.period)
+
 
     def get_data(self):
 
