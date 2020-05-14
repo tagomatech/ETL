@@ -56,6 +56,7 @@ class NBS_Fetcher(object):
 
         geo : str, optional
             NBS geographical zone to fetch data for. Possible values:
+            
             Provinces:
                 Beijing         :   "110000"
                 Tianjin         :   "120000"
@@ -88,6 +89,7 @@ class NBS_Fetcher(object):
                 Qinghai         :   "630000"
                 Ningxia         :   "640000"
                 Xinjiang        :   "650000"
+                
             TODO: complete the list above for other geographical levels
 
         measure : str
@@ -96,6 +98,7 @@ class NBS_Fetcher(object):
             Accumulated                                 :   "02"
             Growth Rate (The same period last year=100) :   "03"
             Accumulated Growth Rate(%)                  :   "04"
+            
             TODO: check data type are always those in the list above across products
             
         period : str
@@ -103,9 +106,10 @@ class NBS_Fetcher(object):
             13 most recent months   : "LAST13"
             24 most recent months   : "LAST24"
             36 most recent months   : "LAST36"
-            Specific year            : "2014", "2015", etc...
+            Specific year           : "2014", "2015", etc...
             Specific time range     : "2013-2015", "201303-2015-12"
             etc...
+            
             TODO: Review the part of the code that creates the np.Series() object as
             it is likely to break when only 1 data point is returned
             
@@ -133,7 +137,7 @@ class NBS_Fetcher(object):
                             period='LAST13')
         data = nbs.get_data()
         
-         """
+        """
         
         self.database = database
         self.product = product
@@ -156,7 +160,6 @@ class NBS_Fetcher(object):
         self.url_QueryData = '{}?m=QueryData&dbcode={}&rowcode=zb&colcode=sj&wds=[{{"wdcode":"reg","valuecode":"{}"}}]&dfwds=[{{"wdcode":"sj","valuecode":"{}"}}]'.format(url_root,
                                                                                                                                                                         self.database,
                                                                                                                                                                         self.geo,
-                                                                                                                                                                        self.period)
 
     def get_data(self):
 
