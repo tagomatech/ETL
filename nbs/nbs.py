@@ -16,10 +16,10 @@ class NBS_Fetcher(object):
             NBS database to fetch data from. Possible values:
             
             national data, yearly           :   'hgnd'
-            national data,  quaterly        :   'hgjd'
+            national data, quarterly        :   'hgjd'
             national data, monthly          :   'hgyd'
             province data, yearly           :   'fsnd'
-            province data, quaterly         :   'fsjd'
+            province data, quarterly        :   'fsjd'
             province data, monthly          :   'fsyd'
             city data, yearly               :   'csnd'
             city data, monthly              :   'csyd'
