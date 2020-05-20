@@ -4,7 +4,7 @@ import requests, os, re, gzip, folium, sys
 import pandas as pd
 import datetime as dt
 
-sys.path.append('N:/ags/factory/') # Work
+sys.path.append('.../factory/') # Work
 
 import variables
 variables = variables.Variables.get_variables()
