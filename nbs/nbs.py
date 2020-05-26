@@ -7,9 +7,8 @@ import numpy as np
 class NBS_Fetcher(object):
     """Returns data from China's National Bureau of Statistics (NBS)."""
     
-     def __init__(self, database, product, geo='', measure='01', period='LAST13'):
-        """
-        
+    def __init__(self, database, product, geo='', measure='01', period='LAST13'):
+        """        
         Parameters
         ----------
         database : str
@@ -53,7 +52,7 @@ class NBS_Fetcher(object):
             nuclear power           :   "A03010J"
             wind power              :   "A03010K"
             solar power             :   "A03010L"
-            gas                     : "A03010M"
+            gas                     :   "A03010M"
             
         geo : str, optional
             NBS geographical zone to fetch data for. Possible values:
