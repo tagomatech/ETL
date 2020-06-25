@@ -47,7 +47,6 @@ class EIA(object):
             # Create series object
             data = pd.Series(data=lst_values,
                              index=lst_dates)
-
             data.index = pd.to_datetime(data.index)
             data.name = self.series_id
 
