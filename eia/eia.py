@@ -1,80 +1,59 @@
-import json
 import numpy as np
 import pandas as pd
-from urllib.error import URLError, HTTPError
-from urllib.request import urlopen
+import requests
+import json
 
-class EIAgov(object):
-    def __init__(self, token, series):
-        '''
-        Purpose:
-        Initialise the EIAgov class by requesting:
-        - EIA token
-        - id code(s) of the series to be downloaded
+class EIA(object):
+    
+    def __init__(self, token: str, series_id: str):
+        """Fetch data from www.eia.gov
+        
+        Attributes
+        ----------
+        token: str
+            EIA token
 
-        Parameters:
-        - token: string
-        - series: string or list of strings
-        '''
+        series_id : str
+            series id
+        
+        Methods
+        -------
+        getData(token: str, series_id: str)
+            Fetch data from website and return a pd.Series()
+            
+        Examples
+        -------
+        # Get daily prices of natural gas, series id NG.RNGC1.D
+        # http://www.eia.gov/beta/api/qb.cfm?category=462457&sdid=NG.RNGC1.D
+        token = 'YOUR_EIA_TOKEN'
+        nat_gas = 'NG.RNGC1.D'
+        eia = EIA(token, nat_gas)
+        print(eia.getData())
+        """
         self.token = token
-        self.series = series
-
-    '''
-    def __repr__(self):
-        return str(self.series)
-    '''
-
-    def Raw(self, ser):
+        self.series_id = series_id
+ 
+    def getData(self) -> pd.Series:
         # Construct url
-        url = 'http://api.eia.gov/series/?api_key=' + self.token + '&series_id=' + ser.upper()
+        url = 'http://api.eia.gov/series/?api_key=' + self.token + '&series_id=' + self.series_id.upper()
 
         try:
-            # URL request, URL opener, read content
-            response = urlopen(url);
-            raw_byte = response.read()
-            raw_string = str(raw_byte, 'utf-8-sig')
-            jso = json.loads(raw_string)
-            return jso
+            # Fetch data
+            r = requests.get(url)
+            jso = r.json()
+            dic = jso['series'][0]['data']
+            lst_dates = np.column_stack(dic)[0]
+            lst_values = np.column_stack(dic)[1]
 
-        except HTTPError as e:
-            print('HTTP error type.')
-            print('Error code: ', e.code)
+            # Create series object
+            data = pd.Series(data=lst_values,
+                             index=lst_dates)
 
-        except URLError as e:
-            print('URL type error.')
-            print('Reason: ', e.reason)
+            data.index = pd.to_datetime(data.index)
+            data.name = self.series_id
 
-    def GetData(self):
-        # Deal with the date series                       
-        date_ = self.Raw(self.series[0])        
-        date_series = date_['series'][0]['data']
-        endi = len(date_series) # or len(date_['series'][0]['data'])
-        date = []
-        for i in range (endi):
-            date.append(date_series[i][0])
-
-        # Create dataframe
-        df = pd.DataFrame(data=date)
-        df.columns = ['Date']
-
-        # Deal with data
-        lenj = len(self.series)
-        for j in range (lenj):
-            data_ = self.Raw(self.series[j])
-            data_series = data_['series'][0]['data']
-            data = []
-            endk = len(date_series)         
-            for k in range (endk):
-                data.append(data_series[k][1])
-            df[self.series[j]] = data
+            return data
         
-        return df
-
-if __name__ == '__main__':
-    tok = 'YOUR_EIA_TOKEN'
-        
-    # Natural Gas - Daily prices
-    # http://www.eia.gov/beta/api/qb.cfm?category=462457&sdid=NG.RNGC1.D
-    ng = ['NG.RNGC1.D']  # w/ several series at a time ['ELEC.REV.AL-ALL.M', 'ELEC.REV.AK-ALL.M', 'ELEC.REV.CA-ALL.M']
-    data = EIAgov(tok, ng)
-    print(data.GetData())
+        # Except anything
+        except Exception as e:
+            print(e)
