@@ -12,7 +12,6 @@ class EIA(object):
         ----------
         token: str
             EIA token
-
         series_id : str
             series id
         
