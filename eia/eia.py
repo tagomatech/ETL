@@ -41,10 +41,10 @@ class EIA(object):
             r = requests.get(url)
             jso = r.json()
             dic = jso['series'][0]['data']
-            lst_dates = np.column_stack(dic)[0]
-            lst_values = np.column_stack(dic)[1]
 
             # Create series object
+            lst_dates = np.column_stack(dic)[0]
+            lst_values = np.column_stack(dic)[1]
             data = pd.Series(data=lst_values,
                              index=lst_dates)
             data.index = pd.to_datetime(data.index)
