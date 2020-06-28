@@ -1,3 +1,5 @@
+# """ eia.py """
+
 import numpy as np
 import pandas as pd
 import requests
@@ -33,11 +35,11 @@ class EIA(object):
         self.series_id = series_id
  
     def getData(self) -> pd.Series:
-        # Construct url
-        url = 'http://api.eia.gov/series/?api_key=' + self.token + '&series_id=' + self.series_id.upper()
-
+        # Url
+        url = 'http://api.eia.gov/series/?api_key={}&series_id={}'.format(self.token, self.series_id.upper()) 
+        
+        # Fetch data
         try:
-            # Fetch data
             r = requests.get(url)
             jso = r.json()
             dic = jso['series'][0]['data']
