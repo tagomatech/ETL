@@ -35,7 +35,7 @@ class EIA(object):
         self.series_id = series_id
  
     def getData(self) -> pd.Series:
-        # Url
+        # URL
         url = 'http://api.eia.gov/series/?api_key={}&series_id={}'.format(self.token, self.series_id.upper()) 
         
         # Fetch data
