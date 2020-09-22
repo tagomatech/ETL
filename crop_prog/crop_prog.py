@@ -1,237 +1,176 @@
-import gzip
-import requests
-import io
-import re
-import numpy as np
-import pandas as pd
 import datetime as dt
+import nass
+import json
+import pandas as pd
 
-class GSOD(object):
+class crop_prog(object):
     '''
-    Download GSOD weather data from NOAA servers. Also provides additional data facilities.
-    
-    Parameters
-    ----------
-    
-    station: str, weather station ID. A combination of USAF (6-digit) and
-    WBAN (5-digit) identification numbers separated by a dash sign
-    
-    start: int, default = current year.
-    Year to download the data from
-    
-    end: int, default = current year.
-    Year to download the data up to
-    
-    units (additional parameter): str of dic of str. Unit conversion destination,
-    e.g. ['celsius', 'km', 'kph', 'cm']
-
-    station_search (additional parameter): select : dict, keys: 'ctry', 'station_name', 'state'
-    e.g. {'ctry': 'UK'}, {'state': 'IA'}, {'station_name': 'STANTON'}
+    TODO:
+    Check whether additional features/filters are required depending on e.g. the
+    agricultural product selected
     '''
-    
-    def __init__(self, station=None, start=dt.datetime.now().year, end=dt.datetime.now().year, **kwargs):
-        self.station = station
+    def __init__(self, crop, api, start=dt.datetime.now().year, end=dt.datetime.now().year, geo='US'):
+        self.api = nass.NassApi(api)
+        self.crop = crop
         self.start = start
         self.end = end
-        self.units = kwargs.get('units')
-        self.stn_search = kwargs.get('stn_search')
-        self.flag_search = 0
-
-    def _isd_hist(self):
-        try:
-            # Read weather list of available weather stations
-            print('Wait! Downloading isd-history.csv file from NOAA servers...')
-            URL = 'http://www1.ncdc.noaa.gov/pub/data/noaa/isd-history.csv'
-            content = requests.get(URL).content
-            isd_hist = pd.read_csv(io.StringIO(content.decode('utf-8')))
-            print('OK!')
-
-            # Rename 'STATION NAME' to 'STATION_NAME'
-            isd_hist =  isd_hist.rename(index=str, columns={'STATION NAME' : 'STATION_NAME'})
-            
-            # To datetime objects
-            isd_hist.BEGIN = pd.to_datetime( isd_hist.BEGIN, format='%Y%m%d', infer_datetime_format=False)
-            isd_hist.END = pd.to_datetime(isd_hist.END, format='%Y%m%d', infer_datetime_format=False)
-
-            # To numeric
-            isd_hist.LAT = pd.to_numeric( isd_hist.LAT)
-            isd_hist.LON = pd.to_numeric( isd_hist.LON)
-
-            # Set index ID as table index
-            isd_hist['STATION_ID'] =  isd_hist['USAF'].map(str) + '-' +  isd_hist['WBAN'].map(str)
-            isd_hist =  isd_hist.set_index( isd_hist['STATION_ID'])
-
-            # Get rid of useless columns
-            isd_hist =  isd_hist.drop(['USAF', 'WBAN', 'ICAO', 'ELEV(M)', 'STATION_ID'], axis=1)
-         
-            # Headers to lower case
-            isd_hist.columns =  isd_hist.columns.str.lower()
-
-            self.flag_search = 1
-
-            return isd_hist
-
-        except Exception as e:
-            print(e)
-
-    def station_search(self):
-        if self.flag_search == 0 :
-            isd_hist = self._isd_hist()
-        key = ''.join([k for k in self.stn_search.keys()])
-        val = ''.join([v for v in self.stn_search.values()])
-        return isd_hist[isd_hist[key] == val]
-   
+        self.geo = geo
+    
     def get_data(self):
-        '''
-        Get weather data from the internet as memory stream
-        '''
-        if self.station != None:
 
-            big_df = pd.DataFrame()
+        # Establish connexion
+        q = self.api.query()
 
-            for year in range(self.start, self.end+1):
-
-                # Define URL
-                url = 'http://www1.ncdc.noaa.gov/pub/data/gsod/' + str(year) + '/' + str(self.station) \
-                    + '-' + str(year) + '.op.gz'
-
-                # Define data stream
-                stream = requests.get(url)
-
-                # Unzip on-the-fly
-                decomp_bytes = gzip.decompress(stream.content)
-                data = decomp_bytes.decode('utf-8').split('\n')
-
-                '''
-                Data manipulations and ordering
-                '''
-                # Remove start and end
-                data.pop(0) # Remove first line header
-                data.pop()  # Remove last element
-
-                # Define lists
-                (stn, wban, date, temp, temp_c, dewp, dewp_c,
-                 slp, slp_c, stp, stp_c, visib, visib_c,
-                 wdsp, wdsp_c, mxspd, gust, max, max_f, min, min_f,
-                 prcp, prcp_f, sndp, f, r, s, h, th, tr) = ([] for i in range(30))
-
-                # Fill in lists
-                for i in range(0, len(data)):
-                    stn.append(data[i][0:6])
-                    wban.append(data[i][7:12])
-                    date.append(data[i][14:22])         
-                    temp.append(data[i][25:30])
-                    temp_c.append(data[i][31:33])
-                    dewp.append(data[i][36:41])
-                    dewp_c.append(data[i][42:44])
-                    slp.append(data[i][46:52])      # Mean sea level pressure
-                    slp_c.append(data[i][53:55])
-                    stp.append(data[i][57:63])      # Mean station pressure
-                    stp_c.append(data[i][64:66])
-                    visib.append(data[i][68:73])
-                    visib_c.append(data[i][74:76])
-                    wdsp.append(data[i][78:83])
-                    wdsp_c.append(data[i][84:86])
-                    mxspd.append(data[i][88:93])
-                    gust.append(data[i][95:100])
-                    max.append(data[i][103:108])
-                    max_f.append(data[i][108])
-                    min.append(data[i][111:116])
-                    min_f.append(data[i][116])
-                    prcp.append(data[i][118:123])
-                    prcp_f.append(data[i][123])
-                    sndp.append(data[i][125:130])   # Snow depth in inches to tenth
-                    f.append(data[i][132])          # Fog
-                    r.append(data[i][133])          # Rain or drizzle
-                    s.append(data[i][134])          # Snow or ice pallet
-                    h.append(data[i][135])          # Hail
-                    th.append(data[i][136])         # Thunder
-                    tr.append(data[i][137])         # Tornado or funnel cloud
-
-                '''
-                Replacements
-                min_f & max_f
-                blank   : explicit => e
-                *       : derived => d
-                '''
-                max_f = [re.sub(pattern=' ', repl='e', string=x) for x in max_f] # List comprenhension
-                max_f = [re.sub(pattern='\*', repl='d', string=x) for x in max_f]
-
-                min_f = [re.sub(pattern=' ', repl='e', string=x) for x in min_f]
-                min_f = [re.sub(pattern='\*', repl='d', string=x) for x in min_f]
-
-
-                '''
-                Create dataframe & cleanse data
-                '''
-                # Create intermediate matrix
-                mat = np.matrix(data=[stn, wban, date, temp, temp_c, dewp, dewp_c,
-                       slp, slp_c, stp, stp_c, visib, visib_c,
-                       wdsp, wdsp_c, mxspd, gust, max, max_f, min, min_f,
-                       prcp, prcp_f, sndp, f, r, s, h, th, tr]).T
-
-                # Define header names
-                headers = ['stn', 'wban', 'date', 'temp', 'temp_c', 'dewp', 'dewp_c',
-                'slp', 'slp_c', 'stp', 'stp_c', 'visib', 'visib_c',
-                'wdsp', 'wdsp_c', 'mxspd', 'gust', 'max', 'max_f', 'min', 'min_f',
-                'prcp', 'prcp_f', 'sndp', 'f', 'r', 's', 'h', 'th', 'tr']
-
-                # Set precision
-                pd.set_option('precision', 3)
-
-                # Create dataframe from matrix object
-                df = pd.DataFrame(data=mat, columns=headers)
-
-                # Replace missing values with NAs
-                df = df.where(df != ' ', 9999.9)
-
-                # Create station ids
-                df['station_id'] = df['stn'].map(str) + '-' + df['wban'].map(str)
-                df = df.drop(['stn', 'wban'], axis=1)
-
-                # Convert to numeric
-                df[['temp', 'temp_c', 'dewp', 'dewp_c', 'slp', 'slp_c',
-                    'stp', 'stp_c', 'visib', 'visib_c', 'wdsp', 'wdsp_c',
-                    'mxspd',  'gust', 'max', 'min', 'prcp', 'sndp']] = df[['temp', 'temp_c', 'dewp',
-                                                                           'dewp_c', 'slp', 'slp_c', 'stp',
-                                                                           'stp_c', 'visib', 'visib_c', 'wdsp',
-                                                                           'wdsp_c', 'mxspd', 'gust', 'max',
-                                                                           'min', 'prcp', 'sndp']].apply(pd.to_numeric)
-
-                # Replace missing weather data with NaNs
-                df = df.replace(to_replace=[99.99, 99.9,999.9,9999.9], value=np.nan)
-                
-                # Convert to date format
-                df['date'] = pd.to_datetime(df['date'], format='%Y%m%d')
-
-                # Set station_id as dataframe index
-                df = df.set_index(keys='station_id')
-
-                if self.units:
-                    for conv in self.units:
-
-                        if (conv == 'c' or conv == 'C' or conv == 'celsius' or conv == 'Celsius'):
-                            df[['temp', 'dewp', 'max', 'min']] = df[['temp', 'dewp', 'max', 'min']].apply(lambda x: (x-32)*5/9)
-
-
-                        # Convert miles to km
-                        elif (conv == 'km' or conv == 'Km' or conv == 'KM'):
-                            df['visib'] = df['visib'].apply(lambda x: 1.60934*x)
-
-                        # Convert knots to kph
-                        elif (conv == 'kph' or conv == 'KPH'):
-                            df[['wdsp', 'mxspd', 'gust']] = df[['wdsp', 'mxspd', 'gust']].apply(lambda x: 1.852*x)
-
-                        # Convert inches to cm
-                        elif (conv == 'cm' or conv == 'CM' or conv == 'Cm'):
-                            df[['prcp', 'sndp']] = df[['prcp', 'sndp']].apply(lambda x: 2.54*x)
-
-                        else:
-                            pass
-
-                big_df = pd.concat([big_df, df])
-
-            return big_df
+        # Data source
+        q.filter('source_desc','SURVEY')
         
+        # Data segment
+        q.filter('sector_desc','CROPS')
+        q.filter('group_desc','FIELD CROPS')
+        
+        # Filter by crop
+        q.filter('commodity_desc', self.crop)
+        
+        # Crop condition & progress
+        q.filter('statisticcat_desc',['CONDITION', 'CONDITION, 5 YEAR AVG', 'CONDITION, PREVIOUS YEAR',
+                                    'PROGRESS', 'PROGRESS, 5 YEAR AVG', 'PROGRESS, PREVIOUS YEAR'])
+        
+        q.filter('unit_desc',['PCT EXCELLENT','PCT GOOD','PCT FAIR',
+                             'PCT POOR','PCT VERY POOR',
+                             'PCT PLANTED', 'PCT HARVESTED',
+                             'PCT DENTED', 'PCT DOUGH', 'PCT EMERGED',
+                             'PCT MATURE', 'PCT MILK', 'PCT SILKING',
+                             'PCT BLOOMING', 'PCT COLORING',  'PCT DROPPING LEAVES',
+                             'PCT EMERGED', 'PCT SETTING PODS', 'PCT FULLY PODDED', 'PCT MATURE'])
+                            
+        '''
+        q.filter('unit_desc',['PCT 2 TO 4 INCHES', 'PCT ABOVE NORMAL', 'PCT ACTIVE', 'PCT ADEQUATE', 'PCT BELOW NORMAL', 'PCT BLOOMING',
+         'PCT BOLLS OPENING', 'PCT BOOTED', 'PCT BREAKING DORMANCY', 'PCT BT SIZE GROUP', 'PCT BY DISTANCE',
+         'PCT BY METHOD', 'PCT BY OUTLET', 'PCT BY PRACTICE', 'PCT BY SIZE GROUP', 'PCT BY TYPE', 'PCT BY YEARS',
+         'PCT CALVED', 'PCT CLOSED MIDDLES (ROWS FILLED)', 'PCT COLORING', 'PCT COMPLETE', 'PCT CUT',
+         'PCT DEFOLIATED', 'PCT DENTED', 'PCT DIFFICULT', 'PCT DORMANT', 'PCT DOUGH', 'PCT DROPPING LEAVES',
+         'PCT DUG', 'PCT EMERGED', 'PCT EXCELLENT', 'PCT FAIR', 'PCT FINISHED', 'PCT FROM PASTURES', 'PCT FRUIT SET',
+         'PCT FULL BLOOM', 'PCT FULLY PODDED', 'PCT GOOD', 'PCT GREEN TIP', 'PCT GT 4 INCHES', 'PCT HARVESTED',
+         'PCT HEADED', 'PCT HEAVY', 'PCT INACCESSIBLE', 'PCT JOINTING', 'PCT LAMBED', 'PCT LIGHT', 'PCT LT 2 INCHES',
+         'PCT MATURE', 'PCT MILK', 'PCT MODERATE', 'PCT NONE', 'PCT NORMAL', 'PCT NOT READY FOR STRIPPING',
+         'PCT OF AG LAND', 'PCT OF APPLICATIONS', 'PCT OF AREA BEARING & NON-BEARING', 'PCT OF AREA BEARING, 10TH PERCENTILE',
+         'PCT OF AREA BEARING, 90TH PERCENTILE', 'PCT OF AREA BEARING, AVG', 'PCT OF AREA BEARING, CV PCT',
+         'PCT OF AREA BEARING, MEDIAN', 'PCT OF AREA NON-BEARING, AVG', 'PCT OF AREA PLANTED', 'PCT OF AREA PLANTED, 10TH PERCENTILE',
+         'PCT OF AREA PLANTED, 90TH PERCENTILE', 'PCT OF AREA PLANTED, AVG', 'PCT OF AREA PLANTED, CV PCT', 'PCT OF AREA PLANTED, MEDIAN',
+         'PCT OF COLONIES', 'PCT OF COMMERCIAL', 'PCT OF COMMODITY TOTALS', 'PCT OF CROP & ANIMAL WORKERS', 'PCT OF EXPENSE',
+         'PCT OF FARM OPERATIONS', 'PCT OF FARM SALES', 'PCT OF FUEL EXPENSES', 'PCT OF HIRED & AG SERVICE WORKERS',
+         'PCT OF HIRED WORKERS', 'PCT OF INVENTORY', 'PCT OF LB CERTIFIED & POST-MORTEM CONDEMNED', 'PCT OF MKTG YEAR',
+         'PCT OF OPERATING EXPENSES', 'PCT OF OPERATIONS', 'PCT OF OPERATIONS BY METHOD', 'PCT OF ORGANIC SALES',
+         'PCT OF PARITY', 'PCT OF POULTS PLACED', 'PCT OF PRODUCTION EXPENSES', 'PCT OF RETAIL & WHOLESALE',
+         'PCT OF SLAUGHTER', 'PCT OF TOTAL EXPENSES', 'PCT OF TOTAL STOCKS', 'PCT OF VOLUME HANDLED, AVG',
+         'PCT PASTURED', 'PCT PEGGING', 'PCT PETAL FALL', 'PCT PINK', 'PCT PLANTED', 'PCT POOR', 'PCT RAY FLOWERS DRIED OR DROPPED',
+         'PCT READILY ACCESSIBLE', 'PCT READY FOR STRIPPING', 'PCT SEEDBED PREPARED', 'PCT SETTING BOLLS',
+         'PCT SETTING PODS', 'PCT SEVERE', 'PCT SHORN', 'PCT SHORT','PCT SILKING', 'PCT SQUARING', 'PCT STRIPPED',
+         'PCT SURPLUS', 'PCT TOPPED', 'PCT TRANSPLANTED', 'PCT TURNING BROWN', 'PCT TURNING YELLOW', 'PCT VERY POOR',
+         'PCT VERY SHORT', 'PCT VINES DRY'])
+        '''
+                
+        # Domain
+        q.filter('domain_desc','TOTAL')
+        
+        # Geographical parameter: State(s) or US
+        if self.geo != 'US':
+            q.filter('agg_level_desc','STATE')
+            q.filter('state_alpha', self.geo)
         else:
-            print('Require weather station argument!') 
+            q.filter('agg_level_desc', 'NATIONAL')
+        
+        # Time period 
+        q.filter('year',range(self.start,self.end+1))
+        
+        # Data frequency
+        q.filter('freq_desc','WEEKLY')
+        
+        # Additional filtering (required?)
+        #q.filter('util_practice_desc','GRAIN')
+        
+        # Execute query
+        exec_query = q.execute()
+
+		# Re-arrange data into a dataframe        
+        dumped = json.dumps(exec_query)
+        df = pd.read_json(path_or_buf=dumped)
+        df = df.set_index(['week_ending'])
+        df = df.drop(['agg_level_desc', 'asd_code', 'asd_desc', 'class_desc', 'congr_district_code', 'country_name',
+                      'county_ansi', 'county_code', 'county_name', 'country_code', 'CV (%)',
+                      'domain_desc', 'domaincat_desc', 'group_desc', 'end_code', 'freq_desc',
+                      'location_desc', 'load_time', 'prodn_practice_desc', 'reference_period_desc', 'region_desc', 'sector_desc', 'source_desc',
+                      'state_ansi', 'state_fips_code', 'state_name',
+                      'statisticcat_desc', 'util_practice_desc', 'unit_desc', 'watershed_code', 'watershed_desc',
+                      'zip_5'], axis=1)
+                
+        # Drop corn silage related ratings, if any
+        df = df[~df.short_desc.str.contains('SILAGE')]
+        
+        # Rename columns
+        df = df.rename(index=str, columns={'begin_code': 'week',
+                                           'commodity_desc': 'crop',
+                                           'short_desc': 'rating',
+                                           'state_alpha': 'geo',
+                                           'Value': 'val'})
+
+        df = df.replace({'(?:\w*) - CONDITION, MEASURED IN PCT EXCELLENT': 'e',
+                         '(?:\w*) - CONDITION, MEASURED IN PCT FAIR': 'f',
+                         '(?:\w*) - CONDITION, MEASURED IN PCT GOOD': 'g',
+                         '(?:\w*) - CONDITION, MEASURED IN PCT POOR': 'p',
+                         '(?:\w*) - CONDITION, MEASURED IN PCT VERY POOR': 'vp',
+                         
+                         '(?:\w*) - CONDITION, PREVIOUS YEAR, MEASURED IN PCT EXCELLENT': 'e_prev_year',
+                         '(?:\w*) - CONDITION, PREVIOUS YEAR, MEASURED IN PCT FAIR': 'f_prev_year',
+                         '(?:\w*) - CONDITION, PREVIOUS YEAR, MEASURED IN PCT GOOD': 'g_prev_year',
+                         '(?:\w*) - CONDITION, PREVIOUS YEAR, MEASURED IN PCT POOR': 'p_prev_year',
+                         '(?:\w*) - CONDITION, PREVIOUS YEAR, MEASURED IN PCT VERY POOR': 'vp_prev_year',
+                         
+                         '(?:\w*) - CONDITION, 5 YEAR AVG, MEASURED IN PCT EXCELLENT': 'e_5y_ave',
+                         '(?:\w*) - CONDITION, 5 YEAR AVG, MEASURED IN PCT FAIR': 'f_5y_ave',
+                         '(?:\w*) - CONDITION, 5 YEAR AVG, MEASURED IN PCT GOOD': 'g_5y_ave',
+                         '(?:\w*) - CONDITION, 5 YEAR AVG, MEASURED IN PCT POOR': 'p_5y_ave',
+                         '(?:\w*) - CONDITION, 5 YEAR AVG, MEASURED IN PCT VERY POOR': 'vp_5y_ave',
+                         
+                         '(?:(\w*,\s\w*|\w*)) - PROGRESS, MEASURED IN PCT HARVESTED': 'harvested',                     
+                         '(?:(\w*,\s\w*|\w*)) - PROGRESS, PREVIOUS YEAR, MEASURED IN PCT HARVESTED': 'harvested_prev_year',
+                         '(?:(\w*,\s\w*|\w*)) - PROGRESS, 5 YEAR AVG, MEASURED IN PCT HARVESTED': 'harvested_5y_ave',
+                         
+                         '(?:\w*) - PROGRESS, MEASURED IN PCT DENTED': 'dent',                     
+                         '(?:\w*) - PROGRESS, PREVIOUS YEAR, MEASURED IN PCT DENTED': 'dent_prev_year',
+                         '(?:\w*) - PROGRESS, 5 YEAR AVG, MEASURED IN PCT DENTED': 'dent_5y_ave',
+                         
+                         '(?:\w*) - PROGRESS, MEASURED IN PCT DOUGH': 'dough',                     
+                         '(?:\w*) - PROGRESS, PREVIOUS YEAR, MEASURED IN PCT DOUGH': 'dough_prev_year',
+                         '(?:\w*) - PROGRESS, 5 YEAR AVG, MEASURED IN PCT DOUGH': 'dough_5y_ave',
+
+                         '(?:\w*) - PROGRESS, MEASURED IN PCT SILKING': 'silk',                     
+                         '(?:\w*) - PROGRESS, PREVIOUS YEAR, MEASURED IN PCT SILKING': 'silk_prev_year',
+                         '(?:\w*) - PROGRESS, 5 YEAR AVG, MEASURED IN PCT SILKING': 'silk_5y_ave',
+                         
+                         '(?:\w*) - PROGRESS, MEASURED IN PCT EMERGED': 'emerge',                     
+                         '(?:\w*) - PROGRESS, PREVIOUS YEAR, MEASURED IN PCT EMERGED': 'emerge_prev_year',
+                         '(?:\w*) - PROGRESS, 5 YEAR AVG, MEASURED IN PCT EMERGED': 'emerge_5y_ave',
+                         
+                         '(?:\w*) - PROGRESS, MEASURED IN PCT MATURE': 'matu',                     
+                         '(?:\w*) - PROGRESS, PREVIOUS YEAR, MEASURED IN PCT MATURE': 'matu_prev_year',
+                         '(?:\w*) - PROGRESS, 5 YEAR AVG, MEASURED IN PCT MATURE': 'matu_5y_ave',
+                         
+                         '(?:\w*) - PROGRESS, MEASURED IN PCT PLANTED': 'planted',                     
+                         '(?:\w*) - PROGRESS, PREVIOUS YEAR, MEASURED IN PCT PLANTED': 'planted_prev_year',
+                         '(?:\w*) - PROGRESS, 5 YEAR AVG, MEASURED IN PCT PLANTED': 'planted_5y_ave',
+                        
+                         '(?:\w*) - PROGRESS, MEASURED IN PCT BLOOMING': 'bloom',                     
+                         '(?:\w*) - PROGRESS, PREVIOUS YEAR, MEASURED IN PCT BLOOMING': 'bloom_prev_year',
+                         '(?:\w*) - PROGRESS, 5 YEAR AVG, MEASURED IN PCT BLOOMING': 'bloom_5y_ave',
+                         
+                         '(?:\w*) - PROGRESS, MEASURED IN PCT SETTING PODS': 'pod',                     
+                         '(?:\w*) - PROGRESS, PREVIOUS YEAR, MEASURED IN PCT SETTING PODS': 'pod_prev_year',
+                         '(?:\w*) - PROGRESS, 5 YEAR AVG, MEASURED IN PCT SETTING PODS': 'pod_5y_ave',
+                         
+                         '(?:\w*) - PROGRESS, MEASURED IN PCT DROPPING LEAVES': 'drop_leav',                     
+                         '(?:\w*) - PROGRESS, PREVIOUS YEAR, MEASURED IN PCT DROPPING LEAVES': 'drop_leav_prev_year',
+                         '(?:\w*) - PROGRESS, 5 YEAR AVG, MEASURED IN PCT DROPPING LEAVES': 'drop_leav_5y_ave'
+                        
+                        }, regex=True)
+        return df
