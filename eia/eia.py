@@ -49,11 +49,19 @@ class EIA(object):
             lst_values = np.column_stack(dic)[1]
             data = pd.Series(data=lst_values,
                              index=lst_dates)
-            data.index = pd.to_datetime(data.index)
+
+            # Ensure timestamp format consistency across time frequencies
+            if len(data.index[0]) == 4:
+                data.index = [x + '0101' for x in data.index]
+
+            if len(data.index[0]) == 6:
+                data.index =  [x + '01' for x in data.index]
+
+            data.index = pd.to_datetime(data.index, format='%Y%m%d')
             data.name = self.series_id
 
             return data
-        
+
         # Except anything
         except Exception as e:
             print(e)
