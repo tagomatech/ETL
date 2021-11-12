@@ -88,7 +88,8 @@ class BBGDailyHistory:
         return data
 
 
-
+'''
+# Example
 if __name__ == "__main__":
     # Use example of BBGHistory
     #from bbgdatapuller import BBGHistory # Expect folder issue
@@ -98,3 +99,4 @@ if __name__ == "__main__":
     end = '20200109'
     d = BBGDailyHistory(sec=security, fields=fields, start=start, end=end).get_data()
     print(d.head())
+'''
