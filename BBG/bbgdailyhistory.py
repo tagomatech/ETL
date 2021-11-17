@@ -16,7 +16,7 @@ class BBGDailyHistory:
         Field of list of fields ('PX_HIGH', 'PX_LOW', etc...)
     start : str
         Start date
-    end : stf
+    end : str
         End date
     '''
     
@@ -68,12 +68,12 @@ class BBGDailyHistory:
             if event.eventType() == blpapi.Event.RESPONSE or event.eventType() == blpapi.Event.PARTIAL_RESPONSE:
                 for msg in event:
                     fieldData = msg.getElement('securityData').getElement('fieldData')
-                for data in fieldData.values():
-                    for fld in self.fields:
-                        date_acc.append(data.getElement('date').getValue())
-                        field_acc.append(fld)
-                        value_acc.append(data.getElement(fld).getValue())
-                        ticker_acc.append(self.sec)
+                    for data in fieldData.values():
+                        for fld in self.fields:
+                            date_acc.append(data.getElement('date').getValue())
+                            field_acc.append(fld)
+                            value_acc.append(data.getElement(fld).getValue())
+                            ticker_acc.append(self.sec)
                 
             if event.eventType() == blpapi.Event.RESPONSE:
                 endReached = True
@@ -82,7 +82,7 @@ class BBGDailyHistory:
 
         data = pd.DataFrame({'timestamp' : date_acc,
                             'ticker' : ticker_acc,
-                            'field' : fie,
+                            'field' : field_acc,
                             'value' : value_acc})
 
         return data
