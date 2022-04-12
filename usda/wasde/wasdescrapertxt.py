@@ -208,7 +208,7 @@ def main():
     print('Time elapsed {} seconds'.format((end_time - start_time).total_seconds()))
     print('Number of errors {} over {} reports'.format(cnt_errors, cnt_reports + cnt_errors))
     print('Reports failed: {}'.format(lst_failed_reports if len(lst_failed_reports) > 0 else 'None'))
-    print('Dataframe shape:\t{}'.format(df.shape[0]))
+    print('Dataframe shape:\t{}'.format(df.shape))
     print(df.head())
 
 
@@ -219,7 +219,7 @@ if __name__ == '__main__':
 Time elapsed 1.497003 seconds
 Number of errors 0 over 14 reports
 Reports failed: None
-Dataframe shape:        630       
+Dataframe shape:        (630, 16)       
   WasdeNumber  ReportDate                ReportTitle                 Attribute  ReliabilityProjection Commodity         Region  ... AnnualQuarterFlag Value             Unit ReleaseDate       ReleaseTime ForecastYear ForecastMonth
 0         623  April 2022  U.S. Wheat Supply and Use              Area Planted                    NaN     Wheat  United States  ...            Annual  45.5    Million Acres  1900-01-01  12:00:00.0000000         2022             4        
 1         623  April 2022  U.S. Wheat Supply and Use            Area Harvested                    NaN     Wheat  United States  ...            Annual  37.4    Million Acres  1900-01-01  12:00:00.0000000         2022             4        
