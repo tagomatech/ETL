@@ -8,7 +8,7 @@ import json
 class EIA(object):
     
     def __init__(self, token: str, series_id: str):
-        """Fetch data from www.eia.gov
+        """Fetch data from www.eia.gov using v2 of the API
         
         Attributes
         ----------
@@ -34,34 +34,23 @@ class EIA(object):
         self.token = token
         self.series_id = series_id
  
+ 
     def getData(self) -> pd.Series:
+        
         # URL
-        url = 'https://api.eia.gov/series/?api_key={}&series_id={}'.format(self.token, self.series_id.upper()) 
+        url = 'https://api.eia.gov/v2/seriesid/{}?api_key={}'.format(self.series_id.upper(), self.token) 
         
         # Fetch data
-        try:
-            r = requests.get(url)
-            jso = r.json()
-            dic = jso['series'][0]['data']
+        r = requests.get(url)
+        jso = r.json()
 
-            # Create series object
-            lst_dates = np.column_stack(dic)[0]
-            lst_values = np.column_stack(dic)[1]
-            data = pd.Series(data=lst_values,
-                             index=lst_dates)
-
-            # Ensure timestamp format consistency across time frequencies
-            if len(data.index[0]) == 4:
-                data.index = [x + '0101' for x in data.index]
-
-            if len(data.index[0]) == 6:
-                data.index =  [x + '01' for x in data.index]
-
-            data.index = pd.to_datetime(data.index, format='%Y%m%d')
-            data.name = self.series_id
-
-            return data
-
-        # Except anything
-        except Exception as e:
-            print(e)
+        # Create dataframe object    
+        jso = jso['response']['data']
+        df = pd.DataFrame(jso)
+        
+        # Dates of monthly date come with format Y-m
+        # We append the 1st day of the month to get format Y-m-d
+        if len(df.period[0]) == 7:
+            df.period = df.period.apply(lambda x: x + '-01')
+        
+        return df
