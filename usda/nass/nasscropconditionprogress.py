@@ -119,7 +119,7 @@ class fetch_usda(crop_data):
         return df
 
 '''
-test = fetch_usda(api='B84157F6-1D75-34F0-85B1-ABD3C164D8CA', // https://quickstats.nass.usda.gov/api
+test = fetch_usda(api='YOUR_API_CODE', // https://quickstats.nass.usda.gov/api
                   description='PROGRESS',
                   crop='WHEAT',
                   geo= 'KS',
