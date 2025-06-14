@@ -1,20 +1,5 @@
 """
-barcharthistoricaldata.py
-~~~~~~~~~~~~~~~
-Light-weight wrapper for
-https://www.barchart.com/proxies/timeseries/historical/queryeod.ashx
-
-Features
---------
-● Negotiates Barchart’s CSRF cookie/header handshake.
-● Fetches historical daily / weekly / monthly data.
-● Detects payload type:
-      • symbol-first futures CSV (XRK21, …)
-      • date-first equities CSV (AAPL, …)
-● Returns:
-      • pandas.DataFrame  (default)
-      • list-of-dicts     (out="dict")
-      • raw CSV string    (out="text")
+2025-06-14 tagoma: barcharthistoricaldata.py
 """
 
 from __future__ import annotations
