@@ -143,6 +143,6 @@ class BarchartHistoricalData(requests.Session):
 
 if __name__ == "__main__":
 
-    df3 = bc.history("XRK21", maxrecords=10)   # ← LIMIT TO 10 rows
-    print(df3)
+    df = bc.history("XRK21", maxrecords=10)   # ← LIMIT TO 10 rows
+    print(df)
 
