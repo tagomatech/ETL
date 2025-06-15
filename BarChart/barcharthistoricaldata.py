@@ -8,7 +8,6 @@ import io
 import json
 import urllib.parse
 from typing import Literal, Union
-
 import pandas as pd
 import requests
 
@@ -139,10 +138,3 @@ class BarchartHistoricalData(requests.Session):
             f"Unrecognised payload – status {resp.status_code}, "
             f"first bytes: '{preview}'"
         )
-
-
-if __name__ == "__main__":
-
-    df = bc.history("XRK21", maxrecords=10)   # ← LIMIT TO 10 rows
-    print(df)
-
