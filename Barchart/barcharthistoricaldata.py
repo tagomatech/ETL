@@ -1,5 +1,5 @@
 """
-2025-06-14 tagoma: barcharthistoricaldata.py
+2025-07-06 tagoma: barcharthistoricaldata.py
 """
 
 from __future__ import annotations
@@ -22,7 +22,7 @@ class BarchartHistoricalData(requests.Session):
 
     Example
     -------
-    >>> bc = BarchartSession()
+    >>> bc = BarchartHistoricalData()
     >>> df = bc.history("XRK21")      # DataFrame with symbol/date/ohlc/vol/OI
     >>> df.head()
     """
@@ -79,7 +79,7 @@ class BarchartHistoricalData(requests.Session):
 
         Returns
         -------
-        DataFrame | list[dict] | str   (depending on *out*)
+        DataFrame | list[dict] | str    (depending on *out*)
         """
         params = {
             "symbol": symbol,
