@@ -1,5 +1,5 @@
 """
-2025-06-14 tagoma: barcharthistoricaldata.py
+2025-07-13 tagoma: barcharthistoricaldata.py
 """
 
 from __future__ import annotations
