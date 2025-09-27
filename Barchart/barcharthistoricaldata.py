@@ -1,5 +1,6 @@
 """
-2025-07-13 tagoma: barcharthistoricaldata.py
+Aug-25 tagoma: barcharthistoricaldata.py
+Modified Sep-25
 """
 
 from __future__ import annotations
@@ -112,6 +113,7 @@ class BarchartHistoricalData(requests.Session):
                 header=None,
                 names=cols,
                 parse_dates=["date"],
+                date_format="%Y-%m-%d"
             )
             return df if out == "df" else df.to_dict(orient="records")
 
