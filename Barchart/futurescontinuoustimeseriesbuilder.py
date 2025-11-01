@@ -3,12 +3,13 @@
 
 from __future__ import annotations
 
-import re
 from dataclasses import dataclass
 from typing import Dict, Iterable, List, Optional, Tuple, Union
 
 import pandas as pd
-
+import random
+import re
+import time
 
 # ==============================
 # Symbol & month utilities
@@ -80,6 +81,9 @@ class BarchartFetcher(BaseFetcher):
         self.out = out
 
     def fetch_one(self, symbol: str, start: Optional[str], end: Optional[str]) -> pd.DataFrame:
+        # throttle: fixed + random jitter
+        time.sleep(1.0 + random.uniform(1.0, 4.5))
+
         return self.client.history(
             symbol=symbol,
             data=self.data,
