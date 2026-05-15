@@ -1,0 +1,27 @@
+﻿column_name,description
+snapshot_date,Date of the weekly snapshot requested from the ministry API.
+category_slug,Official ministry category slug.
+category_en,English display label for the category.
+category_uk,Original Ukrainian category label.
+campaign_year,Derived seasonal campaign year used for overlays.
+campaign_week,1-based week index inside the derived seasonal campaign.
+season_label,Display label for the derived seasonal campaign.
+geography_level,`national` or `oblast`.
+oblast_slug,Official oblast slug used by the site.
+oblast_en,English oblast label.
+oblast_uk,Original Ukrainian oblast label.
+crop_slug,Official crop slug from the API.
+crop_en,English crop label.
+crop_uk,Original Ukrainian crop label.
+item_key,Normalized metric key used by dashboard slicers.
+item_en,English item label used in the dashboards.
+item_uk,Original or derived Ukrainian item label.
+metric_key,Normalized raw metric key.
+metric_en,English metric label.
+metric_uk,Original Ukrainian metric label.
+value,Numeric value returned by the site or derived from it.
+unit_uk,Original Ukrainian unit.
+unit_en,English unit label.
+source_kind,Either `minagro_api` or `public_mirror_seed`.
+source_path,Raw cache file path or public mirror source URL.
+notes,Free-text notes for transparency.

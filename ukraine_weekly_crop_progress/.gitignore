@@ -1,0 +1,13 @@
+auth/minagro_request.txt
+auth/browser_profile/
+logs/
+data/raw/
+legacy/
+views/executive_dashboard.html
+.vs/
+.venv/
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.pytest_cache/

@@ -1,0 +1,79 @@
+﻿label_type,source_uk,display_en,normalized_key
+category,Хід збирання,Harvest progress,hid-polovih-robit
+category,Хід сівби ярих культур,Spring sowing progress,hid-sivbi-yarih-kultur
+category,Хід сівби озимих культур,Winter sowing progress,hid-sivbi-ozimih-kultur
+crop,Усі культури,All crops,__all__
+crop,Усі ярі зернові та зернобобові,All spring grains and pulses,__all__
+crop,Ячмінь,Barley,yachmin
+crop,Гречка,Buckwheat,grechka
+crop,зернові та зернобобові,Cereals and pulses,zernovi-ta-zernobobovi
+crop,Кукурудза,Corn,kukurudza
+crop,Кукурудза на зерно,Corn (grain),kukurudza-na-zerno
+crop,Просо,Millet,proso
+crop,Овес,Oats,oves
+crop,Горох,Peas,gorokh
+crop,Картопля,Potatoes,kartoplia
+crop,Ріпак,Rapeseed,ripak
+crop,Жито,Rye,zhito
+crop,Соя,Soybean,soya
+crop,Ячмінь ярий,Spring barley,iachmin-iaryi
+crop,Пшениця яра,Spring wheat,pshenytsia-iara
+crop,Цукрові буряки,Sugar beet,tsukrovi-buryaki
+crop,цукровий буряк,Sugar beet,tsukroviy-buryak
+crop,Соняшник,Sunflower,sonyashnik
+crop,Овочі,Vegetables,ovochi
+crop,Пшениця,Wheat,pshenitsya
+crop,Ячмінь озимий,Winter barley,iachmin-ozymyi
+crop,озимі на зерно,Winter grains,ozimi-na-zerno
+crop,Ріпак озимий,Winter rapeseed,ripak-ozymyi
+crop,Пшениця озима,Winter wheat,pshenytsia-ozyma
+crop,ярі зернові та зернобобові,Ярі зернові та зернобобові,yari-zernovi-ta-zernobobovi
+item,Фактично,Actual area,actual_area
+item,Прогноз,Forecast area,forecast_area
+item,Обмолочено,Harvested area,harvested_area
+item,Намолочено,Production,production
+item,До прогнозу,Progress to plan,progress_to_plan_pct
+item,Урожайність,Yield,yield
+metric,actual_area,Actual area,actual_area
+metric,Фактично,Actual area,actual_area
+metric,Індекс стану посівів (розрахунковий),Crop condition index (derived),condition_index_100
+metric,forecast_area,Forecast area,forecast_area
+metric,Прогноз,Forecast area,forecast_area
+metric,good_condition_share,Good condition share,good_condition_share
+metric,harvested_area,Harvested area,harvested_area
+metric,Обмолочено,Harvested area,harvested_area
+metric,lost_condition_share,Lost condition share,lost_condition_share
+metric,no_emergence_share,No emergence share,no_emergence_share
+metric,production,Production,production
+metric,Намолочено,Production,production
+metric,progress_to_plan_pct,Progress to plan,progress_to_plan_pct
+metric,До прогнозу,Progress to plan,progress_to_plan_pct
+metric,satisfactory_condition_share,Satisfactory condition share,satisfactory_condition_share
+metric,weak_sparse_condition_share,Weak or sparse condition share,weak_sparse_condition_share
+metric,yield,Yield,yield
+metric,Урожайність,Yield,yield
+oblast,Черкаська область,Cherkasy,cherkaska
+oblast,Чернігівська область,Chernihiv,chernihivska
+oblast,Чернівецька область,Chernivtsi,chernivetska
+oblast,Дніпропетровська область,Dnipropetrovsk,dnipropetrovska
+oblast,Донецька область,Donetsk,donetska
+oblast,Івано-Франківська область,Ivano-Frankivsk,ivano-frankivska
+oblast,Харківська область,Kharkiv,kharkivska
+oblast,Херсонська область,Kherson,khersonska
+oblast,Хмельницька область,Khmelnytskyi,khmelnytska
+oblast,Кіровоградська область,Kirovohrad,kirovohradska
+oblast,Київська область,Kyiv,kyivska
+oblast,Луганська область,Luhansk,luhanska
+oblast,Львівська область,Lviv,lvivska
+oblast,Миколаївська область,Mykolaiv,mykolaivska
+oblast,Одеська область,Odesa,odeska
+oblast,Полтавська область,Poltava,poltavska
+oblast,Рівненська область,Rivne,rivnenska
+oblast,Сумська область,Sumy,sumska
+oblast,Тернопільська область,Ternopil,ternopilska
+oblast,Вся Україна,Ukraine,country
+oblast,Вінницька область,Vinnytsia,vinnytska
+oblast,Волинська область,Volyn,volynska
+oblast,Закарпатська область,Zakarpattia,zakarpatska
+oblast,Запорізька область,Zaporizhzhia,zaporizka
+oblast,Житомирська область,Zhytomyr,zhytomyrska

@@ -1,0 +1,24 @@
+# This file is now usually written automatically by:
+#   python .\src\minagro_weekly_workflow.py capture-auth
+#
+# Manual fallback only:
+#
+# Option A
+# Paste a browser "Copy as cURL" block here exactly as copied from DevTools.
+#
+# Example shape only:
+# curl "https://minagro.gov.ua/api/minagro?category=hid-sivbi-yarih-kultur&to=09.05.2025" ^
+#   -H "accept: application/json, text/plain, */*" ^
+#   -H "referer: https://minagro.gov.ua/statistics" ^
+#   -H "user-agent: Mozilla/5.0 ..." ^
+#   -H "x-csrf-token: ..." ^
+#   -H "cookie: cf_clearance=...; minagro_session=...; XSRF-TOKEN=..."
+#
+# Option B
+# Use a simple env-style block instead:
+#
+# USER_AGENT=Mozilla/5.0 ...
+# COOKIE_HEADER=cf_clearance=...; minagro_session=...; XSRF-TOKEN=...
+# X_CSRF_TOKEN=...
+# REFERER=https://minagro.gov.ua/statistics
+# ACCEPT_LANGUAGE=uk-UA,uk;q=0.9,en-US;q=0.8,en;q=0.7
