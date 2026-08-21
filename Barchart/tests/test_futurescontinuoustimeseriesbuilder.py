@@ -1,12 +1,14 @@
+import logging
 import unittest
 from unittest.mock import Mock
 
 import pandas as pd
 
 from Barchart.futurescontinuoustimeseriesbuilder import (
-    BarchartFetcher,
-    ContinuousFuturesBuilder,
     DEFAULT_ROOT_CYCLES,
+    BarchartFetcher,
+    ContractCycle,
+    ContinuousFuturesBuilder,
     canonical_symbol,
     month_letters_to_nums,
     parse_symbol,
@@ -28,17 +30,15 @@ class FuturesBuilderTests(unittest.TestCase):
         self.assertEqual(step_symbol("KCZ25", 1, [3, 5, 7, 9, 12]), "KCH26")
         self.assertEqual(month_letters_to_nums(["H", "K", "N"]), [3, 5, 7])
         self.assertEqual(DEFAULT_ROOT_CYCLES["ZC"], [3, 5, 7, 9, 12])
+        self.assertEqual(ContractCycle.for_root("zc").months, (3, 5, 7, 9, 12))
         with self.assertRaises(ValueError):
             month_letters_to_nums(["H", "H"])
 
     def test_ladder_includes_a_contract_month_when_start_is_mid_month(self):
-        ladder = ContinuousFuturesBuilder._generate_symbol_ladder(
-            "KC",
-            [5, 7],
+        ladder = ContractCycle.for_root("KC", ["K", "N"]).symbol_ladder(
             pd.Timestamp("2025-05-15"),
             pd.Timestamp("2025-07-15"),
         )
-
         self.assertEqual(ladder, ["KCK25", "KCN25"])
 
     def test_fetcher_can_be_used_without_sleeping(self):
@@ -102,7 +102,10 @@ class FuturesBuilderTests(unittest.TestCase):
 
         result = ContinuousFuturesBuilder(verbose=False).build(data, line_number=2)
 
-        self.assertEqual(result["date"].dt.strftime("%Y-%m-%d").tolist(), ["2025-01-02"])
+        self.assertEqual(
+            result["date"].dt.strftime("%Y-%m-%d").tolist(),
+            ["2025-01-02"],
+        )
 
     def test_timezone_aware_bounds_are_accepted(self):
         data = {
@@ -120,6 +123,20 @@ class FuturesBuilderTests(unittest.TestCase):
 
         self.assertEqual(len(result), 1)
         self.assertEqual(result.loc[0, "close"], 101)
+
+    def test_builder_logs_instead_of_printing(self):
+        logger = logging.getLogger("test-builder")
+        builder = ContinuousFuturesBuilder(
+            fetcher=Mock(),
+            verbose=True,
+            logger=logger,
+        )
+        builder.fetcher.fetch_one.return_value = contract_frame(
+            ["2025-01-02"], [100]
+        )
+        with self.assertLogs(logger, level="INFO") as captured:
+            builder.build(["KCZ25"], line_number=1)
+        self.assertTrue(any("Fetching KCZ25" in message for message in captured.output))
 
 
 if __name__ == "__main__":

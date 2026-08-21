@@ -1,4 +1,4 @@
-"""Small client for Barchart historical time-series responses."""
+"""Typed, session-backed access to Barchart historical time-series data."""
 
 from __future__ import annotations
 
@@ -6,10 +6,19 @@ import csv
 import io
 import json
 import urllib.parse
-from typing import Any, Literal, Union
+from collections.abc import Mapping
+from typing import Any, Literal, TypeAlias
 
 import pandas as pd
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
+
+from .exceptions import (
+    BarchartDecodeError,
+    BarchartResponseError,
+    BarchartTransportError,
+)
 
 ROOT = "https://www.barchart.com"
 API_EOD = f"{ROOT}/proxies/timeseries/historical/queryeod.ashx"
@@ -18,16 +27,20 @@ DEFAULT_USER_AGENT = (
     "AppleWebKit/537.36 (KHTML, like Gecko) "
     "Chrome/125 Safari/537.36"
 )
+HistoryOutput: TypeAlias = pd.DataFrame | list[dict[str, Any]] | dict[str, Any] | str
+Timeout: TypeAlias = float | tuple[float, float]
+_ALLOWED_FREQUENCIES = {"daily", "weekly", "monthly"}
+_ALLOWED_OUTPUTS = {"df", "dict", "text"}
 
-HistoryOutput = Union[pd.DataFrame, list[dict[str, Any]], str]
 
+class BarchartClient(requests.Session):
+    """HTTP client for Barchart historical data.
 
-class BarchartHistoricalData(requests.Session):
-    """Session-backed client for Barchart historical data.
-
-    By default the constructor performs the Barchart cookie handshake. Set
-    ``handshake=False`` when a caller owns the session setup, or when testing
-    response handling without making a network request.
+    The class remains a requests.Session for backwards compatibility, but
+    adds a bounded timeout, retry policy, typed errors, and a deterministic
+    response decoder. The web-session handshake is enabled by default to match
+    the original package behavior. Pass handshake=False when the caller
+    manages cookies or is testing the decoder offline.
     """
 
     def __init__(
@@ -35,24 +48,71 @@ class BarchartHistoricalData(requests.Session):
         *,
         ua: str | None = None,
         handshake: bool = True,
-        handshake_timeout: float = 10.0,
-        request_timeout: float = 15.0,
+        handshake_timeout: Timeout = 10.0,
+        request_timeout: Timeout = 15.0,
+        max_retries: int = 2,
+        retry_backoff_factor: float = 0.25,
     ) -> None:
         super().__init__()
-        self.request_timeout = request_timeout
+        if max_retries < 0:
+            raise ValueError("max_retries must be >= 0")
+        if retry_backoff_factor < 0:
+            raise ValueError("retry_backoff_factor must be >= 0")
+
+        self.request_timeout = _validate_timeout(request_timeout, "request_timeout")
         self.headers.update({"User-Agent": ua or DEFAULT_USER_AGENT})
+        self._configure_retries(max_retries, retry_backoff_factor)
 
         if handshake:
-            response = self.get(ROOT, timeout=handshake_timeout)
-            response.raise_for_status()
-            if not self.cookies.get("XSRF-TOKEN"):
+            response = self._request(
+                ROOT,
+                timeout=_validate_timeout(handshake_timeout, "handshake_timeout"),
+            )
+            if not self._xsrf_cookie():
                 raise RuntimeError(
                     "Barchart did not return an XSRF-TOKEN cookie during the "
                     "authentication handshake."
                 )
 
+    def _configure_retries(self, max_retries: int, backoff_factor: float) -> None:
+        retry = Retry(
+            total=max_retries,
+            connect=max_retries,
+            read=max_retries,
+            status=max_retries,
+            backoff_factor=backoff_factor,
+            status_forcelist=(429, 500, 502, 503, 504),
+            allowed_methods=frozenset({"GET"}),
+            respect_retry_after_header=True,
+        )
+        adapter = HTTPAdapter(max_retries=retry)
+        self.mount("http://", adapter)
+        self.mount("https://", adapter)
+
+    def _request(self, url: str, **kwargs: Any) -> requests.Response:
+        try:
+            response = self.get(url, **kwargs)
+            response.raise_for_status()
+        except requests.HTTPError as exc:
+            status_code = getattr(exc.response, "status_code", None)
+            raise BarchartResponseError(
+                f"Barchart returned HTTP status {status_code}.",
+                status_code=status_code,
+            ) from exc
+        except requests.RequestException as exc:
+            raise BarchartTransportError(
+                f"Barchart request failed for {url}: {exc}"
+            ) from exc
+        return response
+
+    def _xsrf_cookie(self) -> str | None:
+        for cookie in self.cookies:
+            if cookie.name == "XSRF-TOKEN":
+                return cookie.value
+        return None
+
     def _xsrf_header(self) -> dict[str, str]:
-        token = self.cookies.get("XSRF-TOKEN")
+        token = self._xsrf_cookie()
         if not token:
             raise RuntimeError(
                 "Barchart session has no XSRF-TOKEN cookie. "
@@ -70,6 +130,8 @@ class BarchartHistoricalData(requests.Session):
         out: Literal["df", "dict", "text"] = "df",
         startDate: str | None = None,
         endDate: str | None = None,
+        start_date: str | None = None,
+        end_date: str | None = None,
         volume: Literal["total", "contract"] = "total",
         order: Literal["asc", "desc"] = "asc",
         dividends: Literal["true", "false"] = "false",
@@ -78,16 +140,31 @@ class BarchartHistoricalData(requests.Session):
         contractroll: Literal["none", "combined"] = "combined",
         **extra_params: Any,
     ) -> HistoryOutput:
-        """Fetch and decode historical data for one symbol.
+        """Fetch and decode one symbol's historical response.
 
-        ``extra_params`` is retained for endpoint options that are not part of
-        this wrapper's stable signature. Explicit arguments are assembled
-        first and can still be overridden deliberately through that mapping.
+        start_date and end_date are the preferred snake-case names.
+        startDate and endDate remain supported for existing callers.
+        Additional endpoint parameters can be supplied as keyword arguments,
+        but they cannot silently replace the stable arguments above.
         """
-        if not symbol or not symbol.strip():
+
+        symbol = symbol.strip()
+        if not symbol:
             raise ValueError("symbol must not be empty")
-        if out not in {"df", "dict", "text"}:
-            raise ValueError("out must be one of: df, dict, text")
+        if data not in _ALLOWED_FREQUENCIES:
+            raise ValueError(f"data must be one of: {sorted(_ALLOWED_FREQUENCIES)}")
+        if out not in _ALLOWED_OUTPUTS:
+            raise ValueError(f"out must be one of: {sorted(_ALLOWED_OUTPUTS)}")
+        if maxrecords is not None and maxrecords < 1:
+            raise ValueError("maxrecords must be >= 1 or None")
+        if daystoexpiration is not None and daystoexpiration < 0:
+            raise ValueError("daystoexpiration must be >= 0 or None")
+
+        start = _coalesce_date(start_date, startDate, "start_date", "startDate")
+        end = _coalesce_date(end_date, endDate, "end_date", "endDate")
+        if start is not None and end is not None:
+            if pd.Timestamp(start) > pd.Timestamp(end):
+                raise ValueError("start_date must be earlier than or equal to end_date")
 
         params: dict[str, Any] = {
             "symbol": symbol,
@@ -99,30 +176,29 @@ class BarchartHistoricalData(requests.Session):
             "daystoexpiration": daystoexpiration,
             "contractroll": contractroll,
         }
-
-        if startDate:
-            params["startDate"] = startDate
+        if start is not None:
+            params["startDate"] = start
         elif maxrecords is not None:
             params["maxrecords"] = maxrecords
+        if end is not None:
+            params["endDate"] = end
 
-        if endDate:
-            params["endDate"] = endDate
-
+        conflicts = set(params).intersection(extra_params)
+        if conflicts:
+            names = ", ".join(sorted(conflicts))
+            raise ValueError(f"extra parameters cannot override: {names}")
         params.update(extra_params)
 
-        headers = {
-            "Accept": "text/plain, application/json",
-            "Referer": f"{ROOT}/futures/quotes/{symbol}/historical-data",
-            **self._xsrf_header(),
-        }
-        response = self.get(
+        response = self._request(
             API_EOD,
             params=params,
-            headers=headers,
+            headers={
+                "Accept": "text/plain, application/json",
+                "Referer": f"{ROOT}/futures/quotes/{symbol}/historical-data",
+                **self._xsrf_header(),
+            },
             timeout=self.request_timeout,
         )
-        response.raise_for_status()
-
         return self._decode_response(
             response.text,
             content_type=response.headers.get("content-type", ""),
@@ -143,28 +219,33 @@ class BarchartHistoricalData(requests.Session):
     ) -> HistoryOutput:
         body = body.strip()
         if not body:
-            raise ValueError(
+            raise BarchartDecodeError(
                 f"Barchart returned an empty response for {symbol} "
                 f"(status {status_code})."
             )
-        if body.startswith("Error:"):
-            raise ValueError(f"Barchart API error for {symbol}: {body}")
+        if body.lower().startswith("error:"):
+            raise BarchartDecodeError(f"Barchart API error for {symbol}: {body}")
         if out == "text":
             return body
 
-        media_type = content_type.split(";", 1)[0].strip().lower()
+        media_type = (content_type or "").split(";", 1)[0].strip().lower()
         if media_type == "application/json" or body[0] in "[{":
             try:
-                payload = json.loads(body)
+                payload: Any = json.loads(body)
             except json.JSONDecodeError as exc:
-                raise ValueError(
+                raise BarchartDecodeError(
                     f"Barchart returned invalid JSON for {symbol}: {exc}"
                 ) from exc
+            if isinstance(payload, Mapping) and (
+                "error" in payload or "errors" in payload
+            ):
+                raise BarchartDecodeError(
+                    f"Barchart API returned an error for {symbol}: {payload}"
+                )
             if out == "dict":
                 return payload
-            if isinstance(payload, dict):
-                payload = [payload]
-            return pd.DataFrame(payload)
+            records = _records_from_json(payload)
+            return pd.DataFrame(records)
 
         frame = cls._decode_csv(body, symbol=symbol)
         return frame if out == "df" else frame.to_dict(orient="records")
@@ -173,9 +254,9 @@ class BarchartHistoricalData(requests.Session):
     def _decode_csv(body: str, *, symbol: str) -> pd.DataFrame:
         rows = [row for row in csv.reader(io.StringIO(body)) if any(row)]
         if not rows:
-            raise ValueError(f"Barchart returned no CSV rows for {symbol}.")
+            raise BarchartDecodeError(f"Barchart returned no CSV rows for {symbol}.")
 
-        first = [field.strip().lower() for field in rows[0]]
+        first = [field.strip().lower().lstrip("﻿") for field in rows[0]]
         if "date" in first:
             raw = pd.read_csv(io.StringIO(body))
             lower = {str(column).strip().lower(): column for column in raw.columns}
@@ -194,10 +275,14 @@ class BarchartHistoricalData(requests.Session):
                 "low": source("low"),
                 "close": source("close"),
                 "volume": source("volume", "vol"),
-                "openInterest": source("openinterest", "open_interest", "oi"),
+                "openInterest": source(
+                    "openinterest", "open_interest", "open interest", "oi"
+                ),
             }
             if columns["date"] is None:
-                raise ValueError(f"Barchart CSV has no date column for {symbol}.")
+                raise BarchartDecodeError(
+                    f"Barchart CSV has no date column for {symbol}."
+                )
             frame = pd.DataFrame(
                 {
                     name: raw[column]
@@ -208,7 +293,9 @@ class BarchartHistoricalData(requests.Session):
         else:
             widths = {len(row) for row in rows}
             if len(widths) != 1:
-                raise ValueError(f"Barchart CSV rows have inconsistent widths for {symbol}.")
+                raise BarchartDecodeError(
+                    f"Barchart CSV rows have inconsistent widths for {symbol}."
+                )
             width = widths.pop()
             if width == 8:
                 names = [
@@ -224,7 +311,7 @@ class BarchartHistoricalData(requests.Session):
             elif width == 6:
                 names = ["date", "open", "high", "low", "close", "volume"]
             else:
-                raise ValueError(
+                raise BarchartDecodeError(
                     f"Unsupported Barchart CSV width {width} for {symbol}; "
                     "expected 6 or 8 fields."
                 )
@@ -232,8 +319,55 @@ class BarchartHistoricalData(requests.Session):
 
         frame["date"] = pd.to_datetime(frame["date"], errors="coerce")
         if frame["date"].isna().any():
-            raise ValueError(f"Barchart CSV contains an invalid date for {symbol}.")
-        for column in ["open", "high", "low", "close", "volume", "openInterest"]:
+            raise BarchartDecodeError(
+                f"Barchart CSV contains an invalid date for {symbol}."
+            )
+        for column in ("open", "high", "low", "close", "volume", "openInterest"):
             if column in frame.columns:
                 frame[column] = pd.to_numeric(frame[column], errors="coerce")
         return frame
+
+
+def _validate_timeout(value: Timeout, name: str) -> Timeout:
+    if isinstance(value, tuple):
+        if len(value) != 2 or any(part <= 0 for part in value):
+            raise ValueError(f"{name} tuple values must be > 0")
+        return value
+    if value <= 0:
+        raise ValueError(f"{name} must be > 0")
+    return value
+
+
+def _coalesce_date(
+    preferred: str | None,
+    legacy: str | None,
+    preferred_name: str,
+    legacy_name: str,
+) -> str | None:
+    if preferred is not None and legacy is not None and preferred != legacy:
+        raise ValueError(f"{preferred_name} and {legacy_name} disagree")
+    return preferred if preferred is not None else legacy
+
+
+def _records_from_json(payload: Any) -> list[dict[str, Any]]:
+    if isinstance(payload, list):
+        if not all(isinstance(row, Mapping) for row in payload):
+            raise BarchartDecodeError("Barchart JSON list must contain objects.")
+        return [dict(row) for row in payload]
+    if isinstance(payload, Mapping):
+        for key in ("data", "results", "rows"):
+            nested = payload.get(key)
+            if isinstance(nested, list):
+                if not all(isinstance(row, Mapping) for row in nested):
+                    raise BarchartDecodeError(
+                        f"Barchart JSON field {key!r} must contain objects."
+                    )
+                return [dict(row) for row in nested]
+            if isinstance(nested, Mapping):
+                return [dict(nested)]
+        return [dict(payload)]
+    raise BarchartDecodeError("Barchart JSON payload must be an object or list.")
+
+
+# Backwards-compatible public name used by the original package.
+BarchartHistoricalData = BarchartClient
