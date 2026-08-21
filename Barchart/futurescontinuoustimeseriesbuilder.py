@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, Iterable, List, Optional, Tuple, Union
+from typing import Callable, Dict, Iterable, List, Optional, Tuple, Union
 
 import pandas as pd
 import random
@@ -23,6 +23,7 @@ def parse_symbol(sym: str) -> Tuple[str, int, int, str]:
     """
     'KCZ25' -> ('KC', 12, 2025, 'Z')
     """
+    sym = sym.strip().upper()
     m = _CONTRACT_RE.match(sym)
     if not m:
         raise ValueError(f"Cannot parse contract symbol: {sym}")
@@ -36,16 +37,36 @@ def expiry_key(sym: str) -> int:
     return y * 12 + m
 
 def month_letters_to_nums(months: Iterable[str]) -> List[int]:
-    return [_MONTH_CODE[m.strip().upper()] for m in months]
+    values = []
+    for month in months:
+        code = month.strip().upper()
+        if code not in _MONTH_CODE:
+            raise ValueError(f"Unknown futures month code: {month}")
+        values.append(_MONTH_CODE[code])
+    if not values or len(values) != len(set(values)):
+        raise ValueError("cycle months must contain one or more unique month codes")
+    return values
 
 def step_symbol(sym: str, steps: int, cycle_months: List[int]) -> str:
+    if steps < 0:
+        raise ValueError("steps must be >= 0")
+    if not cycle_months or len(cycle_months) != len(set(cycle_months)):
+        raise ValueError("cycle_months must contain one or more unique months")
     root, m, y, _ = parse_symbol(sym)
+    if m not in cycle_months:
+        raise ValueError(f"Month {m} from {sym} is not present in cycle_months")
     pos = cycle_months.index(m)
     pos2 = pos + steps
     new_m = cycle_months[pos2 % len(cycle_months)]
     year_bump = pos2 // len(cycle_months)
     new_y = y + year_bump
     return f"{root}{_MONTH_CODE_INV[new_m]}{str(new_y)[-2:]}"
+
+
+def canonical_symbol(sym: str) -> str:
+    """Return a normalized two-digit-year contract symbol."""
+    root, _, year, month_code = parse_symbol(sym)
+    return f"{root}{month_code}{year % 100:02d}"
 
 
 # Defaults for roots that don’t trade all 12 months (extend as needed)
@@ -72,19 +93,40 @@ class BarchartFetcher(BaseFetcher):
     """
     Adapter for your BarchartHistoricalData client (has .history(...)->df).
     """
-    def __init__(self, client, *, data: str = "daily", maxrecords: int = 640,
-                 order: str = "asc", out: str = "df"):
+    def __init__(
+        self,
+        client,
+        *,
+        data: str = "daily",
+        maxrecords: int = 640,
+        order: str = "asc",
+        out: str = "df",
+        min_delay_seconds: float = 2.0,
+        max_delay_seconds: float = 5.5,
+        sleep: Callable[[float], None] = time.sleep,
+        random_source: Optional[random.Random] = None,
+    ):
+        if max_delay_seconds < min_delay_seconds:
+            raise ValueError("max_delay_seconds must be >= min_delay_seconds")
         self.client = client
         self.data = data
         self.maxrecords = maxrecords
         self.order = order
         self.out = out
+        self.min_delay_seconds = min_delay_seconds
+        self.max_delay_seconds = max_delay_seconds
+        self.sleep = sleep
+        self.random_source = random_source or random.Random()
 
     def fetch_one(self, symbol: str, start: Optional[str], end: Optional[str]) -> pd.DataFrame:
-        # throttle: fixed + random jitter
-        time.sleep(1.0 + random.uniform(1.0, 4.5))
+        delay = self.random_source.uniform(
+            self.min_delay_seconds,
+            self.max_delay_seconds,
+        )
+        if delay > 0:
+            self.sleep(delay)
 
-        return self.client.history(
+        result = self.client.history(
             symbol=symbol,
             data=self.data,
             maxrecords=self.maxrecords,
@@ -93,6 +135,9 @@ class BarchartFetcher(BaseFetcher):
             startDate=start,
             endDate=end,
         )
+        if not isinstance(result, pd.DataFrame):
+            raise TypeError("BarchartFetcher requires the client's out='df' result")
+        return result
 
 
 # ==============================
@@ -147,13 +192,15 @@ class ContinuousFuturesBuilder:
     ) -> Union[pd.DataFrame, Tuple[pd.DataFrame, pd.DataFrame]]:
         if self.fetcher is None:
             raise ValueError("build_from_root requires a fetcher (e.g., BarchartFetcher).")
+        if line_number < 1:
+            raise ValueError("line_number must be >= 1")
 
         if months is None:
             cycle = DEFAULT_ROOT_CYCLES.get(root.upper(), list(range(1, 13)))
         else:
             if isinstance(months, str):
                 months = [m for m in months.split() if m]
-            cycle = month_letters_to_nums(months)
+            cycle = sorted(month_letters_to_nums(months))
 
         root = root.upper()
         s_dt = pd.to_datetime(start).normalize()
@@ -167,7 +214,7 @@ class ContinuousFuturesBuilder:
             r2, _, _, _ = parse_symbol(current_front)
             if r2.upper() != root:
                 raise ValueError(f"current_front '{current_front}' root != '{root}'")
-            front_at_end = current_front
+            front_at_end = canonical_symbol(current_front)
         else:
             front_at_end = self._front_symbol_at_date(root, cycle, e_dt)
 
@@ -218,10 +265,14 @@ class ContinuousFuturesBuilder:
         all_df = self._concat_with_expiry(data)
 
         # Clip
-        if start is not None:
-            all_df = all_df[all_df["date"] >= pd.to_datetime(start)]
-        if end is not None:
-            all_df = all_df[all_df["date"] <= pd.to_datetime(end)]
+        start_dt = self._to_naive_timestamp(start)
+        end_dt = self._to_naive_timestamp(end)
+        if start_dt is not None and end_dt is not None and start_dt > end_dt:
+            raise ValueError("start must be earlier than or equal to end")
+        if start_dt is not None:
+            all_df = all_df[all_df["date"] >= start_dt]
+        if end_dt is not None:
+            all_df = all_df[all_df["date"] <= end_dt]
         if all_df.empty:
             empty = self._empty_series_df()
             return (empty, pd.DataFrame()) if return_segments else empty
@@ -229,18 +280,24 @@ class ContinuousFuturesBuilder:
         # Optional volume filter
         if self.min_volume is not None and "volume" in all_df.columns:
             all_df = all_df[all_df["volume"] > int(self.min_volume)]
+        if all_df.empty:
+            empty = self._empty_series_df()
+            return (empty, pd.DataFrame()) if return_segments else empty
 
         # De-dupe
-        all_df = all_df.sort_values(["symbol","date"]).drop_duplicates(subset=["symbol","date"], keep="last")
+        all_df = all_df.sort_values(
+            ["symbol", "date"], kind="stable"
+        ).drop_duplicates(subset=["symbol", "date"], keep="last")
 
         # Per-date ranking by expiry (earliest first)
-        counts = all_df.groupby("date")["source_symbol"].nunique().rename("active_count")
-        all_df = all_df.merge(counts, on="date", how="left")
-        all_df["rank"] = all_df.groupby("date")["exp_key"].rank(method="first", ascending=True)
+        all_df = all_df.sort_values(
+            ["date", "exp_key", "source_symbol"], kind="stable"
+        )
+        all_df["active_count"] = all_df.groupby("date")["source_symbol"].transform("nunique")
+        all_df["rank"] = all_df.groupby("date").cumcount() + 1
 
         # Select nearby-k
-        k = float(line_number)
-        pick = all_df[all_df["rank"] == k].copy()
+        pick = all_df[all_df["rank"] == line_number].copy()
         if self.drop_incomplete_days:
             pick = pick[pick["active_count"] >= line_number]
 
@@ -267,7 +324,9 @@ class ContinuousFuturesBuilder:
         month_set = set(cycle_months)
         symbols: List[str] = []
         seen: set[str] = set()
-        for dt in pd.date_range(start_dt, end_dt, freq="MS"):   # month starts within window
+        first_month = start_dt.to_period("M").to_timestamp()
+        last_month = end_dt.to_period("M").to_timestamp()
+        for dt in pd.date_range(first_month, last_month, freq="MS"):
             if dt.month in month_set:
                 sym = f"{root}{_MONTH_CODE_INV[dt.month]}{dt.year%100:02d}"
                 if sym not in seen:
@@ -320,6 +379,7 @@ class ContinuousFuturesBuilder:
         if isinstance(contracts_or_data, dict):
             data: Dict[str, pd.DataFrame] = {}
             for sym, df in contracts_or_data.items():
+                sym = canonical_symbol(sym)
                 n = self._normalize_contract_df(df, sym)
                 if not n.empty:
                     data[sym] = n
@@ -330,7 +390,10 @@ class ContinuousFuturesBuilder:
         if self.fetcher is None:
             raise ValueError("No fetcher provided. Pass a dict, or initialize with a fetcher.")
 
-        symbols = sorted(set(contracts_or_data), key=expiry_key)
+        symbols = sorted(
+            {canonical_symbol(sym) for sym in contracts_or_data},
+            key=expiry_key,
+        )
         out: Dict[str, pd.DataFrame] = {}
         for sym in symbols:
             if self.verbose:
@@ -351,53 +414,69 @@ class ContinuousFuturesBuilder:
     def _to_naive_datetime(s: pd.Series) -> pd.Series:
         return pd.to_datetime(s, utc=True, errors="coerce").dt.tz_convert(None)
 
+    @staticmethod
+    def _to_naive_timestamp(value: Optional[str]) -> Optional[pd.Timestamp]:
+        if value is None:
+            return None
+        timestamp = pd.Timestamp(value)
+        if timestamp.tzinfo is not None:
+            timestamp = timestamp.tz_convert(None)
+        return timestamp
+
     def _normalize_contract_df(self, df: pd.DataFrame, symbol: str) -> pd.DataFrame:
+        if not isinstance(df, pd.DataFrame):
+            raise TypeError("contract data must be a pandas DataFrame")
         out = df.copy()
 
-        # date
-        date_col = next((c for c in ("date","tradeDate","timestamp","Date") if c in out.columns), None)
+        lower = {str(c).strip().lower(): c for c in out.columns}
+        date_col = next(
+            (lower[name] for name in ("date", "tradedate", "timestamp") if name in lower),
+            None,
+        )
         if date_col is None:
             raise KeyError("No date-like column found (expected one of: date, tradeDate, timestamp, Date).")
         out["date"] = self._to_naive_datetime(out[date_col])
         out = out[out["date"].notna()]
 
-        # lower-case mapping for flexible renames
-        lower = {c.lower(): c for c in out.columns}
         def pull(*aliases: str) -> Optional[str]:
             for a in aliases:
                 if a in lower:
                     return lower[a]
             return None
 
-        OPEN  = pull("open")
-        HIGH  = pull("high")
-        LOW   = pull("low")
-        CLOSE = pull("close","last")
-        SETTL = pull("settlement","settle","set","sett")
-        LAST  = pull("last")
-        VOL   = pull("volume","vol")
-        OI    = pull("openinterest","open_interest","oi")
+        sources = {
+            "open": pull("open"),
+            "high": pull("high"),
+            "low": pull("low"),
+            "close": pull("close"),
+            "settlement": pull("settlement", "settle", "set", "sett"),
+            "last": pull("last"),
+            "volume": pull("volume", "vol"),
+            "openInterest": pull("openinterest", "open_interest", "oi"),
+        }
 
-        cols = ["date", "symbol"]
+        selected: List[str] = []
+        rename_map: Dict[str, str] = {}
+
+        def add(source: Optional[str], target: str) -> None:
+            if source is not None and source not in selected:
+                selected.append(source)
+                rename_map[source] = target
+
+        for target in ["open", "high", "low", "close", "settlement", "last", "volume", "openInterest"]:
+            add(sources[target], target)
+
+        cols = ["date", "symbol", *selected]
         out["symbol"] = symbol
-
-        rename_map = {}
-        for src, dst in [(OPEN,"open"), (HIGH,"high"), (LOW,"low"),
-                         (CLOSE,"close"), (SETTL,"settlement"), (LAST,"last"),
-                         (VOL,"volume"), (OI,"openinterest")]:
-            if src:
-                rename_map[src] = dst
-                cols.append(src)
-
         out = out[cols].rename(columns=rename_map)
 
+        if "close" not in out.columns and "last" in out.columns:
+            out["close"] = out["last"]
+
         # numeric coercion
-        for c in ["open","high","low","close","settlement","last","volume","openinterest"]:
+        for c in ["open", "high", "low", "close", "settlement", "last", "volume", "openInterest"]:
             if c in out.columns:
                 out[c] = pd.to_numeric(out[c], errors="coerce")
-
-        if "openinterest" in out.columns:
-            out = out.rename(columns={"openinterest":"openInterest"})
 
         return out.sort_values("date").dropna(subset=["date"]).reset_index(drop=True)
 
@@ -435,7 +514,8 @@ class ContinuousFuturesBuilder:
                     )
                 )
                 i = j
-        return pd.DataFrame([r.__dict__ for r in rows])
+        columns = ["segment_start", "segment_end", "line", "source_symbol", "n_rows"]
+        return pd.DataFrame([r.__dict__ for r in rows], columns=columns)
 
     @staticmethod
     def _empty_series_df() -> pd.DataFrame:
