@@ -199,13 +199,16 @@ class BarchartClient(requests.Session):
             },
             timeout=self.request_timeout,
         )
-        return self._decode_response(
+        decoded = self._decode_response(
             response.text,
             content_type=response.headers.get("content-type", ""),
             symbol=symbol,
             out=out,
             status_code=response.status_code,
         )
+        if out == "df" and isinstance(decoded, pd.DataFrame):
+            return _clip_frame(decoded, start=start, end=end)
+        return decoded
 
     @classmethod
     def _decode_response(
@@ -347,6 +350,35 @@ def _coalesce_date(
     if preferred is not None and legacy is not None and preferred != legacy:
         raise ValueError(f"{preferred_name} and {legacy_name} disagree")
     return preferred if preferred is not None else legacy
+
+
+def _clip_frame(
+    frame: pd.DataFrame,
+    *,
+    start: str | None,
+    end: str | None,
+) -> pd.DataFrame:
+    """Enforce the requested inclusive date window on decoded history."""
+    if "date" not in frame.columns:
+        return frame
+
+    dates = pd.to_datetime(
+        frame["date"],
+        errors="coerce",
+        utc=True,
+    ).dt.tz_convert(None)
+    mask = dates.notna()
+    if start is not None:
+        start_timestamp = pd.Timestamp(start)
+        if start_timestamp.tzinfo is not None:
+            start_timestamp = start_timestamp.tz_convert("UTC").tz_localize(None)
+        mask &= dates >= start_timestamp
+    if end is not None:
+        end_timestamp = pd.Timestamp(end)
+        if end_timestamp.tzinfo is not None:
+            end_timestamp = end_timestamp.tz_convert("UTC").tz_localize(None)
+        mask &= dates <= end_timestamp
+    return frame.loc[mask].reset_index(drop=True)
 
 
 def _records_from_json(payload: Any) -> list[dict[str, Any]]:

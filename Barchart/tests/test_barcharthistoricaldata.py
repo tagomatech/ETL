@@ -73,6 +73,29 @@ class BarchartHistoricalDataTests(unittest.TestCase):
         frame = client.history("KCZ25")
         self.assertEqual(frame.loc[0, "close"], 100.5)
 
+    def test_history_clips_data_to_requested_date_window(self):
+        client = client_for(
+            FakeResponse(
+                "KCZ25,2024-12-31,100,101,99,100,123,456"
+                + chr(10)
+                + "KCZ25,2025-01-02,101,102,100,101,123,456"
+                + chr(10)
+                + "KCZ25,2025-02-03,102,103,101,102,123,456"
+                + chr(10)
+            )
+        )
+
+        frame = client.history(
+            "KCZ25",
+            start_date="2025-01-01",
+            end_date="2025-01-31",
+        )
+
+        self.assertEqual(
+            frame["date"].dt.strftime("%Y-%m-%d").tolist(),
+            ["2025-01-02"],
+        )
+
     def test_history_rejects_invalid_parameters(self):
         client = client_for(FakeResponse("unused"))
         for kwargs in ({"maxrecords": 0}, {"daystoexpiration": -1}):

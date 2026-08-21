@@ -3,8 +3,8 @@
 #
 # This demo uses the CME Group / CBOT Corn futures root ZC and shows how the
 # Barchart utilities turn individual contract histories into nearby lines.
-# It uses deterministic offline data by default. Set USE_LIVE_DATA to True in
-# the final cell to fetch current histories from Barchart.
+# It starts with deterministic offline data to explain the builder. The final
+# section fetches the actual Barchart histories by default.
 
 # %%
 from pathlib import Path
@@ -36,14 +36,16 @@ START = "2024-01-02"
 END = "2025-12-31"
 CORN_ROOT = "ZC"
 CORN_CYCLE = ["H", "K", "N", "U", "Z"]
+# Set False for an offline-only run with no Barchart requests.
+USE_LIVE_DATA = True
 
 # %% [markdown]
-# ## 1. Build a deterministic offline contract set
+# ## 1. Build a deterministic offline illustration
 #
 # The synthetic histories share a market path but have contract-level offsets
 # and noise. Each contract is only available during a plausible pre-expiry
-# window, making nearby selection and roll segments visible without presenting
-# synthetic values as market prices.
+# window, making nearby selection and roll segments visible. These values are
+# illustrative and must not be interpreted as market prices.
 
 # %%
 def make_demo_contracts(start=START, end=END):
@@ -219,7 +221,7 @@ axes[1].set_title("Nearby spread", loc="left", color=muted, fontsize=11)
 fig.text(
     0.01,
     0.01,
-    "Offline demonstration data; enable USE_LIVE_DATA below for Barchart histories.",
+    "Offline illustration; the live Barchart comparison follows below.",
     color=muted,
     fontsize=9,
 )
@@ -227,16 +229,16 @@ fig.tight_layout(rect=[0, 0.03, 1, 1])
 plt.show()
 
 # %% [markdown]
-# ## 4. Inspect one named contract: September 2026 Corn (ZCU26)
+# ## 4. Inspect one named contract: September 2026 Corn (ZCU26), offline illustration
 #
 # CME/CBOT Corn uses the ZC root, U for September, and 26 for 2026. This
-# section keeps the individual contract history visible instead of selecting
-# it through a continuous nearby rule.
+# section keeps the individual contract history visible instead of selecting it
+# through a continuous nearby rule. The following chart is synthetic.
 
 # %%
 SPECIFIC_CONTRACT = "ZCU26"
 SPECIFIC_START = "2025-01-02"
-SPECIFIC_END = "2026-08-31"
+SPECIFIC_END = "2026-08-21"
 
 
 def make_demo_contract_history(symbol, start, end, *, seed=2609):
@@ -339,37 +341,105 @@ fig.tight_layout(rect=[0, 0.03, 1, 1])
 plt.show()
 
 # %% [markdown]
-# ## 5. Optional live Barchart data
+# ## 5. Compare against the live Barchart history
 #
-# This path uses CME/CBOT Corn root ZC and the default H/K/N/U/Z cycle. It is
-# disabled for a reproducible notebook run. Barchart access, rate limits, and
-# endpoint behavior still apply.
+# This is the market-data comparison. It uses CME/CBOT Corn root ZC and the
+# default H/K/N/U/Z cycle, then fetches the full available history for the named
+# September 2026 contract (ZCU26). Barchart access and rate limits apply.
 
 # %%
-USE_LIVE_DATA = False
-
 if USE_LIVE_DATA:
-    client = BarchartHistoricalData()
-    live_builder = ContinuousFuturesBuilder(
-        fetcher=BarchartFetcher(client),
-        verbose=True,
-    )
-    live_series, live_segments = live_builder.build_from_root(
-        CORN_ROOT,
-        line_number=1,
-        start=START,
-        end=END,
-        months=CORN_CYCLE,
-        return_segments=True,
-    )
-    display(live_segments)
-    display(live_series.tail())
-    live_specific_contract = client.history(
-        SPECIFIC_CONTRACT,
-        start_date=SPECIFIC_START,
-        end_date=SPECIFIC_END,
-        out="df",
-    )
-    display(live_specific_contract.tail())
+    try:
+        client = BarchartHistoricalData()
+        live_builder = ContinuousFuturesBuilder(
+            fetcher=BarchartFetcher(client),
+            verbose=True,
+        )
+        live_series, live_segments = live_builder.build_from_root(
+            CORN_ROOT,
+            line_number=1,
+            start=START,
+            end=END,
+            months=CORN_CYCLE,
+            return_segments=True,
+        )
+        live_specific_contract = client.history(
+            SPECIFIC_CONTRACT,
+            start_date="2023-12-01",
+            end_date=None,
+            out="df",
+        )
+        if live_specific_contract.empty:
+            raise ValueError(f"No Barchart rows returned for {SPECIFIC_CONTRACT}.")
+
+        display(live_segments)
+        display(
+            pd.DataFrame(
+                {
+                    "contract": [SPECIFIC_CONTRACT],
+                    "contract_month": ["September 2026"],
+                    "first_date": [live_specific_contract["date"].min().date()],
+                    "last_date": [live_specific_contract["date"].max().date()],
+                    "rows": [len(live_specific_contract)],
+                    "last_close": [live_specific_contract["close"].iat[-1]],
+                    "average_volume": [live_specific_contract["volume"].mean()],
+                }
+            )
+        )
+        display(live_specific_contract.tail())
+
+        fig, axes = plt.subplots(
+            2,
+            1,
+            figsize=(15, 8),
+            sharex=True,
+            gridspec_kw={"height_ratios": [2.2, 1]},
+        )
+        fig.patch.set_facecolor(navy)
+        for axis in axes:
+            axis.set_facecolor(navy)
+            axis.grid(True, color="#3A4A60", alpha=0.35)
+            axis.tick_params(colors=muted)
+            for spine in axis.spines.values():
+                spine.set_color("#3A4A60")
+
+        axes[0].plot(
+            live_specific_contract["date"],
+            live_specific_contract["close"],
+            color=gold,
+            linewidth=2.0,
+            label="ZCU26 close",
+        )
+        axes[0].set_title(
+            "Barchart live | CBOT Corn | ZCU26 | September 2026",
+            loc="left",
+            color="white",
+            fontsize=16,
+            pad=14,
+        )
+        axes[0].set_ylabel("Price (cents/bushel)", color=muted)
+        axes[0].legend(frameon=False, labelcolor="white", loc="upper left")
+
+        axes[1].bar(
+            live_specific_contract["date"],
+            live_specific_contract["volume"],
+            width=1.0,
+            color=field_green,
+            alpha=0.85,
+        )
+        axes[1].set_ylabel("Volume", color=muted)
+        axes[1].set_xlabel("Trade date", color=muted)
+        fig.text(
+            0.01,
+            0.01,
+            "Source: Barchart historical endpoint; requested date bounds are enforced by the client.",
+            color=muted,
+            fontsize=9,
+        )
+        fig.tight_layout(rect=[0, 0.03, 1, 1])
+        plt.show()
+    except Exception as exc:
+        print("Live Barchart data unavailable; showing the offline illustration above.")
+        print(f"{type(exc).__name__}: {exc}")
 else:
-    print("USE_LIVE_DATA is False; showing the offline Corn futures demonstration above.")
+    print("USE_LIVE_DATA is False; showing the offline Corn futures illustration above.")

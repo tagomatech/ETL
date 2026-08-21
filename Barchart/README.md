@@ -57,9 +57,15 @@ so downstream analytics can audit which contract supplied each value.
 
 Open corn_futures_demo.ipynb in Jupyter or VS Code. It uses CME/CBOT Corn
 futures (ZC) and demonstrates contract-level histories, first and second nearby
-lines, roll segments, and nearby spreads. The notebook uses deterministic
-offline data by default; set USE_LIVE_DATA = True for the optional live
-Barchart path.
+lines, roll segments, and nearby spreads. The notebook first shows deterministic
+offline data as an illustration. It then uses USE_LIVE_DATA = True by default
+to fetch the actual Barchart histories, including a full-history price and
+volume chart for the September 2026 contract ZCU26. Set it to False for an
+offline-only run.
+
+The client applies the requested inclusive start and end dates after decoding
+the response, because the upstream endpoint can return rows outside the
+requested window.
 
 The client uses Barchart's web-session cookie handshake and endpoint, so it is
 subject to Barchart availability and any access terms that apply to your use of
