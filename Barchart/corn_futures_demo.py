@@ -133,7 +133,9 @@ sky = "#73B7D8"
 muted = "#AEB9C6"
 
 plot_data = history.tail(PLOT_SESSIONS).copy()
-x_values = mdates.date2num(plot_data["date"].dt.to_pydatetime())
+x_values = mdates.date2num(
+    plot_data["date"].to_numpy(dtype="datetime64[ns]")
+)
 x_step = np.nanmedian(np.diff(x_values))
 candle_width = max(float(x_step * 0.65), 0.25)
 
