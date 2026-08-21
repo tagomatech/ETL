@@ -72,6 +72,7 @@ def canonical_symbol(sym: str) -> str:
 # Defaults for roots that don’t trade all 12 months (extend as needed)
 DEFAULT_ROOT_CYCLES: Dict[str, List[int]] = {
     "KC": [3,5,7,9,12],  # ICE Coffee: H, K, N, U, Z
+    "ZC": [3,5,7,9,12],  # CME/CBOT Corn: H, K, N, U, Z
 }
 
 
