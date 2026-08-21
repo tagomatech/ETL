@@ -6,6 +6,7 @@ import pandas as pd
 from Barchart.futurescontinuoustimeseriesbuilder import (
     BarchartFetcher,
     ContinuousFuturesBuilder,
+    DEFAULT_ROOT_CYCLES,
     canonical_symbol,
     month_letters_to_nums,
     parse_symbol,
@@ -26,6 +27,7 @@ class FuturesBuilderTests(unittest.TestCase):
         self.assertEqual(canonical_symbol("kcz25"), "KCZ25")
         self.assertEqual(step_symbol("KCZ25", 1, [3, 5, 7, 9, 12]), "KCH26")
         self.assertEqual(month_letters_to_nums(["H", "K", "N"]), [3, 5, 7])
+        self.assertEqual(DEFAULT_ROOT_CYCLES["ZC"], [3, 5, 7, 9, 12])
         with self.assertRaises(ValueError):
             month_letters_to_nums(["H", "H"])
 
