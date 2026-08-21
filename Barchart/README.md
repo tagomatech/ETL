@@ -55,13 +55,14 @@ so downstream analytics can audit which contract supplied each value.
 
 ## Corn futures demo
 
-Open corn_futures_demo.ipynb in Jupyter or VS Code. It uses CME/CBOT Corn
-futures (ZC) and demonstrates contract-level histories, first and second nearby
-lines, roll segments, and nearby spreads. The notebook first shows deterministic
-offline data as an illustration. It then uses USE_LIVE_DATA = True by default
-to fetch the actual Barchart histories, including a full-history price and
-volume chart for the September 2026 contract ZCU26. Set it to False for an
-offline-only run.
+Open corn_futures_demo.ipynb in Jupyter or VS Code. It focuses on the actual
+CME/CBOT September 2026 Corn contract ZCU26. The notebook fetches its Barchart
+OHLCV and open-interest history, draws candlesticks, and adds Screamer
+Bollinger Bands, ATR, RSI, and rolling volume mean indicators. It contains no
+synthetic data and does not stitch multiple contracts together.
+
+Install requirements-demo.txt before running the notebook. Screamer requires
+Python 3.11 or newer.
 
 The client applies the requested inclusive start and end dates after decoding
 the response, because the upstream endpoint can return rows outside the

@@ -1,3 +1,4 @@
 -r requirements.txt
 matplotlib>=3.7
 jupyterlab>=4.0
+screamer>=1.2,<2
