@@ -50,7 +50,13 @@ def make_demo_contracts(start=START, end=END):
     dates = pd.bdate_range(start, end)
     rng = np.random.default_rng(2026)
     progress = np.arange(len(dates), dtype=float)
-    market_path = 450 + 0.035 * progress + 13 * np.sin(progress / 75)
+    market_shocks = rng.normal(0, 0.10, len(dates))
+    market_path = (
+        450
+        + 0.035 * progress
+        + 13 * np.sin(progress / 75)
+        + np.cumsum(market_shocks)
+    )
 
     symbols = [
         "ZCH24", "ZCK24", "ZCN24", "ZCU24", "ZCZ24",
@@ -72,7 +78,7 @@ def make_demo_contracts(start=START, end=END):
         close = (
             market_path[positions]
             + contract_offset
-            + rng.normal(0, 1.8, len(contract_dates))
+            + rng.normal(0, 0.25, len(contract_dates))
         )
         contracts[symbol] = pd.DataFrame(
             {
@@ -221,7 +227,119 @@ fig.tight_layout(rect=[0, 0.03, 1, 1])
 plt.show()
 
 # %% [markdown]
-# ## 4. Optional live Barchart data
+# ## 4. Inspect one named contract: September 2026 Corn (ZCU26)
+#
+# CME/CBOT Corn uses the ZC root, U for September, and 26 for 2026. This
+# section keeps the individual contract history visible instead of selecting
+# it through a continuous nearby rule.
+
+# %%
+SPECIFIC_CONTRACT = "ZCU26"
+SPECIFIC_START = "2025-01-02"
+SPECIFIC_END = "2026-08-31"
+
+
+def make_demo_contract_history(symbol, start, end, *, seed=2609):
+    dates = pd.bdate_range(start, end)
+    rng = np.random.default_rng(seed)
+    progress = np.arange(len(dates), dtype=float)
+    market_shocks = rng.normal(0, 0.10, len(dates))
+    market_path = (
+        465
+        + 0.045 * progress
+        + 12 * np.sin(progress / 80)
+        + np.cumsum(market_shocks)
+    )
+    contract_offset = 0.15 * (expiry_key(symbol) - expiry_key("ZCH24"))
+    close = (
+        market_path
+        + contract_offset
+        + rng.normal(0, 0.22, len(dates))
+    )
+    return pd.DataFrame(
+        {
+            "date": dates,
+            "open": close - rng.uniform(0.2, 1.2, len(close)),
+            "high": close + rng.uniform(0.5, 1.8, len(close)),
+            "low": close - rng.uniform(0.5, 1.8, len(close)),
+            "close": close,
+            "volume": rng.integers(25_000, 180_000, len(close)),
+            "openInterest": rng.integers(90_000, 550_000, len(close)),
+        }
+    )
+
+
+specific_contract = make_demo_contract_history(
+    SPECIFIC_CONTRACT,
+    SPECIFIC_START,
+    SPECIFIC_END,
+)
+display(
+    pd.DataFrame(
+        {
+            "contract": [SPECIFIC_CONTRACT],
+            "contract_month": ["September 2026"],
+            "first_date": [specific_contract["date"].min().date()],
+            "last_date": [specific_contract["date"].max().date()],
+            "rows": [len(specific_contract)],
+            "last_close": [specific_contract["close"].iat[-1]],
+            "average_volume": [specific_contract["volume"].mean()],
+        }
+    )
+)
+
+# %%
+fig, axes = plt.subplots(
+    2,
+    1,
+    figsize=(15, 7),
+    sharex=True,
+    gridspec_kw={"height_ratios": [2.2, 1]},
+)
+fig.patch.set_facecolor(navy)
+for axis in axes:
+    axis.set_facecolor(navy)
+    axis.grid(True, color="#3A4A60", alpha=0.35)
+    axis.tick_params(colors=muted)
+    for spine in axis.spines.values():
+        spine.set_color("#3A4A60")
+
+axes[0].plot(
+    specific_contract["date"],
+    specific_contract["close"],
+    color=gold,
+    linewidth=2.0,
+)
+axes[0].set_title(
+    "CME/CBOT Corn | ZCU26 | September 2026 contract",
+    loc="left",
+    color="white",
+    fontsize=16,
+    pad=14,
+)
+axes[0].set_ylabel("Synthetic price", color=muted)
+
+axes[1].bar(
+    specific_contract["date"],
+    specific_contract["volume"],
+    width=1.0,
+    color=field_green,
+    alpha=0.85,
+)
+axes[1].set_ylabel("Volume", color=muted)
+axes[1].set_xlabel("Trade date", color=muted)
+fig.text(
+    0.01,
+    0.01,
+    "Offline demonstration data for the named ZCU26 contract.",
+    color=muted,
+    fontsize=9,
+)
+fig.tight_layout(rect=[0, 0.03, 1, 1])
+plt.show()
+
+# %% [markdown]
+# ## 5. Optional live Barchart data
 #
 # This path uses CME/CBOT Corn root ZC and the default H/K/N/U/Z cycle. It is
 # disabled for a reproducible notebook run. Barchart access, rate limits, and
@@ -246,5 +364,12 @@ if USE_LIVE_DATA:
     )
     display(live_segments)
     display(live_series.tail())
+    live_specific_contract = client.history(
+        SPECIFIC_CONTRACT,
+        start_date=SPECIFIC_START,
+        end_date=SPECIFIC_END,
+        out="df",
+    )
+    display(live_specific_contract.tail())
 else:
     print("USE_LIVE_DATA is False; showing the offline Corn futures demonstration above.")
