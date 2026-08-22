@@ -45,6 +45,17 @@ class BarchartHistoricalDataTests(unittest.TestCase):
         self.assertNotIn("maxrecords", kwargs["params"])
         self.assertEqual(kwargs["headers"]["X-XSRF-TOKEN"], "token/value")
 
+    def test_history_decodes_seven_column_equity_csv(self):
+        client = client_for(
+            FakeResponse("AAPL,2025-01-02,100,101,99,100.5,123456" + chr(10))
+        )
+
+        frame = client.history("AAPL", start_date="2025-01-01", end_date="2025-01-31")
+
+        self.assertEqual(frame.loc[0, "symbol"], "AAPL")
+        self.assertEqual(frame.loc[0, "close"], 100.5)
+        self.assertNotIn("openInterest", frame.columns)
+
     def test_snake_case_dates_and_nested_json_are_supported(self):
         client = client_for(
             FakeResponse(

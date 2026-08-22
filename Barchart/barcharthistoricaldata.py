@@ -311,12 +311,14 @@ class BarchartClient(requests.Session):
                     "volume",
                     "openInterest",
                 ]
+            elif width == 7:
+                names = ["symbol", "date", "open", "high", "low", "close", "volume"]
             elif width == 6:
                 names = ["date", "open", "high", "low", "close", "volume"]
             else:
                 raise BarchartDecodeError(
                     f"Unsupported Barchart CSV width {width} for {symbol}; "
-                    "expected 6 or 8 fields."
+                    "expected 6, 7, or 8 fields."
                 )
             frame = pd.read_csv(io.StringIO(body), header=None, names=names)
 
