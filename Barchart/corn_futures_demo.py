@@ -30,7 +30,12 @@ from IPython.display import display
 from matplotlib.patches import Rectangle
 from screamer import ATR, BollingerBands, RollingMean, RollingRSI
 
-from Barchart import BarchartHistoricalData
+from Barchart import (
+    BarchartHistoricalData,
+    agricultural_catalog,
+    catalog_frame,
+    rebase_frame,
+)
 
 CONTRACT = "ZCU26"
 HISTORY_START = "2023-12-01"
@@ -294,10 +299,162 @@ recent["date"] = recent["date"].dt.strftime("%Y-%m-%d")
 display(recent)
 
 # %% [markdown]
+# ## 4. Agricultural futures universe: current front contracts
+#
+# The catalog keeps Barchart roots, exchange symbols, venues, units, and
+# contract-month metadata in Barchart/commoditycatalog.py. The table includes
+# secondary livestock products; the comparison uses the major default set.
+#
+# Barchart's "*1" shortcut resolves the current front contract. Each line below
+# is therefore one fixed contract chosen as of the run date, not a historical
+# continuous roll. It is rebased to 100 at its first available observation so
+# contracts with different currencies and units can be compared by direction.
+
+# %%
+display(catalog_frame())
+
+comparison_start = "2024-01-01"
+comparison_end = history["date"].max().strftime("%Y-%m-%d")
+comparison_frames = {}
+comparison_rows = []
+failed_rows = []
+
+for item in agricultural_catalog(comparison_only=True):
+    shortcut = item.barchart_symbol()
+    try:
+        front = client.history(
+            shortcut,
+            start_date=comparison_start,
+            end_date=comparison_end,
+            out="df",
+        )
+        if front.empty or "close" not in front.columns:
+            raise ValueError("empty history or missing close column")
+        front = front.sort_values("date").reset_index(drop=True)
+        actual_symbols = (
+            sorted(front["symbol"].dropna().astype(str).unique())
+            if "symbol" in front.columns
+            else []
+        )
+        actual_symbol = actual_symbols[-1] if actual_symbols else shortcut
+        front = rebase_frame(front)
+        comparison_frames[item.root] = front
+        valid = front.loc[front["index_100"].notna()]
+        comparison_rows.append(
+            {
+                "root": item.root,
+                "name": item.name,
+                "category": item.category,
+                "front_contract": actual_symbol,
+                "venue": item.venue,
+                "first_date": valid["date"].iat[0].date(),
+                "last_date": valid["date"].iat[-1].date(),
+                "rows": len(valid),
+            }
+        )
+    except Exception as exc:
+        failed_rows.append(
+            {
+                "root": item.root,
+                "name": item.name,
+                "shortcut": shortcut,
+                "error": f"{type(exc).__name__}: {exc}",
+            }
+        )
+
+if not comparison_frames:
+    raise RuntimeError("No agricultural front-contract histories were returned.")
+front_contracts = pd.DataFrame(comparison_rows).sort_values(["category", "root"])
+display(front_contracts)
+if failed_rows:
+    display(pd.DataFrame(failed_rows))
+
+indexed_history = pd.concat(
+    {
+        root: frame.set_index("date")["index_100"]
+        for root, frame in comparison_frames.items()
+    },
+    axis=1,
+).sort_index()
+
+category_panels = [
+    ("grains", "Grains"),
+    ("oilseeds", "Oilseeds"),
+    ("livestock", "Livestock"),
+    ("vegetable_oils", "Vegetable oils"),
+]
+catalog_by_root = {
+    item.root: item for item in agricultural_catalog(comparison_only=True)
+}
+fig, axes = plt.subplots(2, 2, figsize=(16, 10), sharex=True)
+axes = axes.ravel()
+colors = plt.get_cmap("tab10").colors
+
+for axis, (category, title) in zip(axes, category_panels):
+    axis.set_facecolor(navy)
+    axis.grid(True, color="#3A4A60", alpha=0.35)
+    axis.tick_params(colors=muted)
+    for spine in axis.spines.values():
+        spine.set_color("#3A4A60")
+    roots = [
+        root
+        for root in indexed_history.columns
+        if catalog_by_root[root].category == category
+    ]
+    for color_index, root in enumerate(roots):
+        item = catalog_by_root[root]
+        axis.plot(
+            indexed_history.index,
+            indexed_history[root],
+            linewidth=1.35,
+            color=colors[color_index % len(colors)],
+            label=f"{root} | {item.name}",
+        )
+    axis.axhline(100, color=muted, linewidth=0.8, alpha=0.65)
+    axis.set_title(title, loc="left", color="white", fontsize=13)
+    axis.set_ylabel("Index (first observation = 100)", color=muted)
+    axis.legend(frameon=False, labelcolor="white", fontsize=8, loc="best")
+
+axes[2].set_xlabel("Trade date", color=muted)
+axes[3].set_xlabel("Trade date", color=muted)
+for axis in axes:
+    axis.xaxis_date()
+    axis.xaxis.set_major_locator(mdates.MonthLocator(interval=3))
+    axis.xaxis.set_major_formatter(mdates.DateFormatter("%b\n%Y"))
+
+fig.suptitle(
+    "Current Barchart front contracts | agricultural price paths rebased to 100",
+    color="white",
+    fontsize=16,
+    x=0.08,
+    ha="left",
+)
+fig.text(
+    0.01,
+    0.01,
+    f"Source: Barchart historical endpoint | *1 front month | fixed contracts as of {comparison_end}",
+    color=muted,
+    fontsize=9,
+)
+fig.tight_layout(rect=[0, 0.03, 1, 0.96])
+plt.show()
+
+# %% [markdown]
 # ## Notes
 #
 # The [Barchart contract page](https://www.barchart.com/futures/quotes/ZCU26/overview)
 # identifies this instrument as Corn Sep '26 on the CBOT.
+#
+# The [Barchart symbol search](https://www.barchart.com/search) documents
+# futures month codes and nearby shortcuts. "*1" means front month; "*0" means
+# Barchart's lead month selected using liquidity, so the comparison above uses
+# "*1" for first nearby.
+#
+# The catalog covers the major CBOT/CME grains and oilseeds, ICE Canada canola,
+# Euronext Matif milling wheat and rapeseed, CME livestock, and palm products.
+# CU is a CME USD wrapper referencing Bursa Malaysia FCPO; KP and M5 are direct
+# MDEX roots. The indexed chart is a relative price comparison, not a
+# currency-adjusted return series or a continuous futures series.
 #
 # Screamer provides causal rolling indicators with the same API for historical
 # arrays and live streams. The package is used here for Bollinger Bands, ATR,

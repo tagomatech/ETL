@@ -2,7 +2,8 @@
 
 The Barchart folder is a small, dependency-light library for turning Barchart
 historical responses into analysis-ready contract histories and auditable
-continuous futures series.
+continuous futures series. It also contains a maintained catalog of major
+agricultural futures roots for grains, oilseeds, livestock, and vegetable oils.
 
 ## Design
 
@@ -71,6 +72,40 @@ requested window.
 The client uses Barchart's web-session cookie handshake and endpoint, so it is
 subject to Barchart availability and any access terms that apply to your use of
 the service. No credentials are stored by this package.
+
+## Agricultural catalog and relative comparison
+
+commoditycatalog.py is the source of truth for the agriculture roots. Each
+entry keeps the Barchart root, exchange symbol, venue, contract units, common
+contract months, and notes together. It includes:
+
+- CBOT/CME grains and oilseeds
+- ICE Canada canola
+- Euronext Matif milling wheat and rapeseed
+- CME live cattle, feeder cattle, and lean hogs
+- CME/Bursa-referenced palm oil plus MDEX palm kernel oil and palm olein
+
+The catalog also documents the KM Pork Cutout and L8 Lean Beef Trim 90 roots,
+but leaves them out of the default comparison because they are less standard
+for a first cross-market index.
+
+Use CommodityRoot.barchart_symbol() or barchart_nearby_symbol() to create the
+current nearby shortcut. "*1" means front month, while Barchart's "*0"
+shortcut is a liquidity-led lead month and is not the same as first nearby.
+For example, "ZC*1" currently resolves to "ZCU26".
+
+futuresnormalization.py provides rebase_to_base() and rebase_frame(). The
+notebook uses them to start each current front contract at 100. This is an
+indexed price-path comparison, not a currency-adjusted return series and not
+a continuous roll.
+
+The catalog roots and nearby behavior are grounded in the
+[Barchart futures search](https://www.barchart.com/search),
+[grain contract specifications](https://www.barchart.com/futures/contract-specifications/grains),
+and [meat contract specifications](https://www.barchart.com/futures/contract-specifications/meats).
+The CU entry is labeled carefully: it is Barchart's CME USD Malaysian crude
+palm oil calendar contract, with Bursa Malaysia FCPO as the underlying
+reference, rather than a direct Ringgit FCPO quote.
 
 ## Tests
 

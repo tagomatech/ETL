@@ -5,6 +5,13 @@ from .barcharthistoricaldata import (
     BarchartHistoricalData,
     HistoryOutput,
 )
+from .commoditycatalog import (
+    AGRICULTURAL_CATALOG,
+    CommodityRoot,
+    agricultural_catalog,
+    barchart_nearby_symbol,
+    catalog_frame,
+)
 from .exceptions import (
     BarchartDecodeError,
     BarchartError,
@@ -25,6 +32,7 @@ from .futurescontinuoustimeseriesbuilder import (
     parse_symbol,
     step_symbol,
 )
+from .futuresnormalization import rebase_frame, rebase_many, rebase_to_base
 
 __all__ = [
     "BarchartClient",
@@ -35,6 +43,8 @@ __all__ = [
     "BarchartResponseError",
     "BarchartTransportError",
     "BaseFetcher",
+    "AGRICULTURAL_CATALOG",
+    "CommodityRoot",
     "ContractCycle",
     "ContinuousFuturesBuilder",
     "DEFAULT_ROOT_CYCLES",
@@ -45,5 +55,11 @@ __all__ = [
     "expiry_key",
     "month_letters_to_nums",
     "parse_symbol",
+    "agricultural_catalog",
+    "barchart_nearby_symbol",
+    "catalog_frame",
+    "rebase_frame",
+    "rebase_many",
+    "rebase_to_base",
     "step_symbol",
 ]
