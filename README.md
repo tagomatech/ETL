@@ -32,6 +32,23 @@ environment variable or an explicit API key. It returns pandas DataFrames by
 default and keeps raw JSON available for endpoint fields that do not yet have
 a dedicated wrapper.
 
+Example:
+
+~~~
+from barchart_data import BarchartDataClient
+
+client = BarchartDataClient()
+corn = client.market.history("ZC*1", frequency="daily")
+quotes = client.market.quote(["ZC*1", "AAPL"])
+quarterly_balance_sheet = client.fundamentals.balance_sheets(
+    "AAPL",
+    frequency="Quarter",
+)
+~~~
+
+Use client.call("getEndpointName", params={...}) for an OnDemand endpoint
+that does not yet have a dedicated resource method.
+
 The existing Barchart folder remains as a compatibility layer during the
 migration. Its public-web historical adapter is useful for the current
 commodity demonstration, but it is not the official Barchart OnDemand API.
