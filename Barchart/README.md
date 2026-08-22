@@ -33,6 +33,30 @@ For the rendered Corn futures demo:
 python -m pip install -r Barchart/requirements-demo.txt
 ~~~
 
+To install the Barchart code into a virtual environment from this checkout:
+
+~~~powershell
+cd N:\Biofuels\zzScripts\Repo\ETL-github
+py -3.12 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+python -m pip install -e .\Barchart
+~~~
+
+The editable install makes import Barchart available from any directory while
+still using the checked-out source. To install the notebook and Screamer demo
+dependencies at the same time, use:
+
+~~~powershell
+python -m pip install -e '.\Barchart[demo]'
+~~~
+
+Verify the package installation with:
+
+~~~powershell
+python -c "from Barchart import BarchartClient; print('Barchart import OK')"
+~~~
+
 ## Example
 
 ~~~
