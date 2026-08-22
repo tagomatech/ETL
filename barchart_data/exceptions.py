@@ -21,6 +21,21 @@ class BarchartDecodeError(BarchartDataError):
     """Raised when an API response cannot be decoded."""
 
 
+class BarchartPublicPageError(BarchartDataError):
+    """Raised when a public Barchart quote page cannot be read."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        status_code: int | None = None,
+        url: str | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.status_code = status_code
+        self.url = url
+
+
 class BarchartAPIError(BarchartDataError):
     """Raised when Barchart returns an API or HTTP error."""
 

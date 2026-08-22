@@ -35,7 +35,7 @@ a dedicated wrapper.
 Example:
 
 ~~~
-from barchart_data import BarchartDataClient
+from barchart_data import BarchartDataClient, PublicBarchartClient
 
 client = BarchartDataClient()
 corn = client.market.history("ZC*1", frequency="daily")
@@ -45,6 +45,19 @@ quarterly_balance_sheet = client.fundamentals.balance_sheets(
     frequency="Quarter",
 )
 ~~~
+
+The public-page client is the no-login path:
+
+~~~
+public = PublicBarchartClient()
+corn_quote = public.quote("ZCU26")
+corn_profile = public.profile("ZCU26")
+~~~
+
+It reads the quote and instrument JSON embedded in public Barchart overview
+pages. Public data can be delayed or limited, and the page format can change.
+The authenticated OnDemand client is required for official API coverage such
+as quarterly company balance sheets.
 
 Use client.call("getEndpointName", params={...}) for an OnDemand endpoint
 that does not yet have a dedicated resource method.

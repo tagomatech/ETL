@@ -17,10 +17,12 @@ from .exceptions import (
     BarchartAuthenticationError,
     BarchartDataError,
     BarchartDecodeError,
+    BarchartPublicPageError,
     BarchartTransportError,
 )
 from .legacy import PublicWebHistoryClient
 from .normalization import rebase_frame, rebase_many, rebase_to_base
+from .public import BarchartPublicClient, PublicBarchartClient, PublicWebClient
 from .resources import FundamentalResource, MarketResource, MetadataResource
 
 __all__ = [
@@ -29,6 +31,8 @@ __all__ = [
     "BarchartDataClient",
     "BarchartDataError",
     "BarchartDecodeError",
+    "BarchartPublicClient",
+    "BarchartPublicPageError",
     "BarchartTransportError",
     "AGRICULTURAL_CATALOG",
     "CommodityRoot",
@@ -37,6 +41,8 @@ __all__ = [
     "MetadataResource",
     "OnDemandClient",
     "PublicWebHistoryClient",
+    "PublicBarchartClient",
+    "PublicWebClient",
     "agricultural_catalog",
     "catalog_frame",
     "rebase_frame",
@@ -44,4 +50,4 @@ __all__ = [
     "rebase_to_base",
 ]
 
-__version__ = "0.3.0"
+__version__ = "0.4.0"

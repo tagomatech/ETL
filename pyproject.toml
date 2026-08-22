@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "barchart-data"
-version = "0.3.0"
+version = "0.4.0"
 description = "Modern Python client for Barchart market and financial data"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -15,6 +15,10 @@ dependencies = [
     "requests>=2.28",
     "urllib3>=1.26",
 ]
+
+[project.urls]
+Homepage = "https://github.com/tagomatech/barchart-data"
+Repository = "https://github.com/tagomatech/barchart-data"
 
 [project.optional-dependencies]
 demo = [
