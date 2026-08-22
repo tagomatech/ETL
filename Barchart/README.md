@@ -1,9 +1,21 @@
-# Barchart utilities
+# Barchart compatibility utilities
 
-The Barchart folder is a small, dependency-light library for turning Barchart
-historical responses into analysis-ready contract histories and auditable
-continuous futures series. It also contains a maintained catalog of major
-agricultural futures roots for grains, oilseeds, livestock, and vegetable oils.
+The Barchart folder contains the compatibility modules used by the
+barchart-data project. It turns Barchart historical responses into
+analysis-ready contract histories and auditable continuous futures series,
+and contains a maintained catalog of major agricultural futures roots.
+
+The canonical install now lives at the repository root:
+
+~~~powershell
+python -m pip install -e .
+~~~
+
+Install the notebook and Screamer extras with:
+
+~~~powershell
+python -m pip install -e '.[demo]'
+~~~
 
 ## Design
 
@@ -21,40 +33,18 @@ This makes it possible to derive another client or fetcher without changing the
 continuous-series logic. A database-backed fetcher only needs a
 fetch_one(symbol, start, end) -> pandas.DataFrame method.
 
-## Install
+## Compatibility install
+
+Install the complete project from the repository root:
 
 ~~~
-python -m pip install -r Barchart/requirements.txt
+python -m pip install -e .
 ~~~
 
-For the rendered Corn futures demo:
+The legacy imports remain available:
 
 ~~~
-python -m pip install -r Barchart/requirements-demo.txt
-~~~
-
-To install the Barchart code into a virtual environment from this checkout:
-
-~~~powershell
-cd N:\Biofuels\zzScripts\Repo\ETL-github
-py -3.12 -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install --upgrade pip
-python -m pip install -e .\Barchart
-~~~
-
-The editable install makes import Barchart available from any directory while
-still using the checked-out source. To install the notebook and Screamer demo
-dependencies at the same time, use:
-
-~~~powershell
-python -m pip install -e '.\Barchart[demo]'
-~~~
-
-Verify the package installation with:
-
-~~~powershell
-python -c "from Barchart import BarchartClient; print('Barchart import OK')"
+from Barchart import BarchartClient
 ~~~
 
 ## Example
